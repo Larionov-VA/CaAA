@@ -44,6 +44,13 @@ void addSquare(Square& sourceSquare, u_int64_t* destinationSquare, size_t square
 }
 
 
+void differenceSquare(Square& sourceSquare, u_int64_t* destinationSquare, size_t squareSide) {
+    for (int i = 0; i < squareSide; ++i) {
+        sourceSquare.binaryGridOfSquare[i] ^= destinationSquare[i];
+    }
+}
+
+
 u_int64_t* buildSquareMask(size_t gridSide, size_t squareSide, Point squareRigthUpCoordinates) {
     if (!isPointCorrect(gridSide, squareSide, squareRigthUpCoordinates)) {
         throw std::runtime_error(
@@ -101,7 +108,10 @@ int main() {
             }
         }
     }
-
+    differenceSquare(squareInfo, buildSquareMask(static_cast<size_t>(squareSide), 9, {0,0}), squareSide);
+    for (size_t i = 0; i < static_cast<size_t>(squareSide); ++i) {
+        printLineAsBinary(squareInfo.binaryGridOfSquare[i], squareSide);
+    }
     // findMinimalNumberOfParts();
     return EXIT_SUCCESS;
 }
