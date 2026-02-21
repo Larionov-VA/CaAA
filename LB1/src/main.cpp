@@ -1,25 +1,21 @@
 #include <climits>
 #include <iostream>
-#include <string>
-#include <bitset>
 #include <vector>
+#include <cstdint>
 
 #ifndef STEPIK
 #define STEPIK 1
 #endif
-
 
 struct Position {
     size_t x;
     size_t y;
 };
 
-
 struct Square {
     Position squareLeftUpCoordinates;
     size_t squareSide;
 };
-
 
 struct GridState {
     size_t currentPartsCount;
@@ -27,134 +23,101 @@ struct GridState {
     size_t gridSide;
     size_t gridArea;
     size_t sumOfSquaresAreaInGrid;
-    u_int64_t* binGrid;
-    u_int64_t* fullGridMask;
+    uint64_t* binGrid;
+    uint64_t* fullGridMask;
     std::vector<Square> currentSolution;
     std::vector<Square> bestSolution;
 };
-
 
 bool fitsInsideGrid(size_t gridSide, size_t subSquareSide, Position pos) {
     return pos.x + subSquareSide <= gridSide && pos.y + subSquareSide <= gridSide;
 }
 
-
-void printRowBits(u_int64_t line, size_t gridSide) {
-    std::string s = std::bitset<64>(line).to_string();
-    std::cout << s.substr(64 - gridSide) << std::endl;
-}
-
-
 bool canPlace(GridState& s, size_t side, Position pos) {
-    if (!fitsInsideGrid(s.gridSide, side, pos)) {
+    if (!fitsInsideGrid(s.gridSide, side, pos))
         return false;
-    }
-    u_int64_t line = ((1ULL << side) - 1) << pos.x;
-    for (size_t i = 0; i < side; ++i) {
-        if (s.binGrid[pos.y + i] & line) {
+    uint64_t line = ((1ULL << side) - 1) << pos.x;
+    for (size_t i = 0; i < side; ++i)
+        if (s.binGrid[pos.y + i] & line)
             return false;
-        }
-    }
     return true;
 }
 
-
 void place(GridState& s, size_t side, Position pos) {
-    u_int64_t line = ((1ULL << side) - 1) << pos.x;
+    uint64_t line = ((1ULL << side) - 1) << pos.x;
     for (size_t i = 0; i < side; ++i)
         s.binGrid[pos.y + i] |= line;
 }
 
-
 void remove(GridState& s, size_t side, Position pos) {
-    u_int64_t line = ((1ULL << side) - 1) << pos.x;
+    uint64_t line = ((1ULL << side) - 1) << pos.x;
     for (size_t i = 0; i < side; ++i)
-        s.binGrid[pos.y + i] ^= line;
+        s.binGrid[pos.y + i] &= ~line;
 }
-
 
 Position getFirstPosToNextSquare(GridState& square) {
     for (size_t y = 0; y < square.gridSide; ++y) {
-        if ((square.binGrid[y] & square.fullGridMask[y]) == square.fullGridMask[y]) {
-            continue;
-        }
-        for (size_t x = 0; x < square.gridSide; ++x) {
-            if (!(square.binGrid[y] & (1ULL << x))) {
-                return {x, y};
-            }
+        uint64_t free = ~square.binGrid[y] & square.fullGridMask[y];
+        if (free) {
+            size_t x = __builtin_ctzll(free);
+            return {x, y};
         }
     }
     return {0, 0};
 }
 
-
 bool isGridFull(GridState& square) {
-    for (size_t i = 0; i < square.gridSide; ++i) {
-        if ((square.binGrid[i] & square.fullGridMask[i]) != square.fullGridMask[i]) {
+    for (size_t i = 0; i < square.gridSide; ++i)
+        if ((square.binGrid[i] & square.fullGridMask[i]) != square.fullGridMask[i])
             return false;
-        }
-    }
     return true;
 }
 
-
-size_t getMaxPossibleSide(GridState& s, Position pos) {
-    size_t maxSide = 0;
-    while (pos.x + maxSide < s.gridSide && pos.y + maxSide < s.gridSide) {
-        for (size_t i = 0; i <= maxSide; ++i) {
-            if (s.binGrid[pos.y + maxSide] & (1ULL << (pos.x + i))) {
-                return maxSide;
-            }
-            if (s.binGrid[pos.y + i] & (1ULL << (pos.x + maxSide))) {
-                return maxSide;
-            }
-        }
-        ++maxSide;
-    }
-    return maxSide;
+size_t getMaxSquareAtPosition(GridState& square, Position pos) {
+    size_t maxPossible = std::min(square.gridSide - pos.x, square.gridSide - pos.y);
+    if (maxPossible > square.gridSide - 1)
+        maxPossible = square.gridSide - 1;
+    for (size_t side = maxPossible; side > 0; --side)
+        if (canPlace(square, side, pos))
+            return side;
+    return 0;
 }
 
-
 void findMinimalNumberOfPartsRecursive(GridState& square) {
-    if (square.gridSide % 2 == 0 && square.sumOfSquaresAreaInGrid == 0) {
-        square.bestPartsCount = 4;
-        square.bestSolution.push_back({{1,1}, square.gridSide / 2});
-        square.bestSolution.push_back({{square.gridSide / 2 + 1,1}, square.gridSide / 2});
-        square.bestSolution.push_back({{1, square.gridSide / 2 + 1}, square.gridSide / 2});
-        square.bestSolution.push_back({{square.gridSide / 2 + 1,square.gridSide / 2 + 1}, square.gridSide / 2});
-        return;
-    }
     if (square.currentPartsCount >= square.bestPartsCount)
         return;
+
     if (isGridFull(square)) {
         square.bestPartsCount = square.currentPartsCount;
         square.bestSolution = square.currentSolution;
         return;
     }
-    Position curPosForNextSquare = getFirstPosToNextSquare(square);
-    size_t maxCurrentSide = getMaxPossibleSide(square, curPosForNextSquare);
-    while (maxCurrentSide) {
-        if (canPlace(square, maxCurrentSide, curPosForNextSquare)) {
-            place(square, maxCurrentSide, curPosForNextSquare);
-            square.currentSolution.push_back({{curPosForNextSquare.x + 1, curPosForNextSquare.y + 1}, maxCurrentSide });
-            size_t currentSquareArea = maxCurrentSide * maxCurrentSide;
-            square.sumOfSquaresAreaInGrid += currentSquareArea;
-            ++square.currentPartsCount;
-            findMinimalNumberOfPartsRecursive(square);
-            remove(square, maxCurrentSide, curPosForNextSquare);
-            square.currentSolution.pop_back();
-            square.sumOfSquaresAreaInGrid -= currentSquareArea;
-            --square.currentPartsCount;
-        }
-        --maxCurrentSide;
+
+    Position pos = getFirstPosToNextSquare(square);
+    size_t maxSide = getMaxSquareAtPosition(square, pos);
+
+    for (size_t side = maxSide; side > 0; --side) {
+        if (!canPlace(square, side, pos))
+            continue;
+
+        place(square, side, pos);
+        square.currentSolution.push_back({{pos.x + 1, pos.y + 1}, side});
+        square.sumOfSquaresAreaInGrid += side * side;
+        ++square.currentPartsCount;
+
+        findMinimalNumberOfPartsRecursive(square);
+
+        remove(square, side, pos);
+        square.currentSolution.pop_back();
+        square.sumOfSquaresAreaInGrid -= side * side;
+        --square.currentPartsCount;
     }
 }
 
-
 GridState getEmptyGridState(size_t correctSquareSide) {
-    u_int64_t* emptyGrid = new u_int64_t[correctSquareSide]{};
-    u_int64_t* fullMask = new u_int64_t[correctSquareSide];
-    u_int64_t fullLine = (1ULL << correctSquareSide) - 1;
+    uint64_t* emptyGrid = new uint64_t[correctSquareSide]{};
+    uint64_t* fullMask = new uint64_t[correctSquareSide];
+    uint64_t fullLine = (1ULL << correctSquareSide) - 1;
     for (size_t i = 0; i < correctSquareSide; ++i)
         fullMask[i] = fullLine;
     return {
@@ -170,39 +133,39 @@ GridState getEmptyGridState(size_t correctSquareSide) {
     };
 }
 
-
 int main() {
     long long squareSide;
-    size_t correctSquareSide;
     std::cin >> squareSide;
-    if (squareSide < 2 || squareSide > 63) {
+    if (squareSide < 2 || squareSide > 63)
         return EXIT_FAILURE;
-    }
-    else {
-        correctSquareSide = static_cast<size_t>(squareSide);
-    }
+
+    size_t correctSquareSide = static_cast<size_t>(squareSide);
     GridState squareInfo = getEmptyGridState(correctSquareSide);
-    if (!STEPIK) {
-        int numberOfSquares;
-        std::cin >> numberOfSquares;
-        Position leftUpCoordOfSquare;
-        long long currentSuareSide;
-        for (int i = 0; i < numberOfSquares; ++i) {
-            std::cin >> leftUpCoordOfSquare.x >> leftUpCoordOfSquare.y >> currentSuareSide;
-            if (currentSuareSide < 0) {
-                return EXIT_FAILURE;
-            }
-            Position pos = {leftUpCoordOfSquare.x, leftUpCoordOfSquare.y};
-            place(squareInfo, static_cast<size_t>(currentSuareSide), pos);
-        }
+
+#if !STEPIK
+    int numberOfSquares;
+    std::cin >> numberOfSquares;
+    Position leftUpCoordOfSquare;
+    long long currentSuareSide;
+    for (int i = 0; i < numberOfSquares; ++i) {
+        std::cin >> leftUpCoordOfSquare.x >> leftUpCoordOfSquare.y >> currentSuareSide;
+        Position pos = {leftUpCoordOfSquare.x - 1, leftUpCoordOfSquare.y - 1};
+        place(squareInfo, static_cast<size_t>(currentSuareSide), pos);
+        squareInfo.currentSolution.push_back({{leftUpCoordOfSquare.x, leftUpCoordOfSquare.y}, static_cast<size_t>(currentSuareSide)});
+        squareInfo.sumOfSquaresAreaInGrid += static_cast<size_t>(currentSuareSide) * static_cast<size_t>(currentSuareSide);
+        squareInfo.currentPartsCount++;
     }
+#endif
+
     findMinimalNumberOfPartsRecursive(squareInfo);
+
     std::cout << squareInfo.bestPartsCount << "\n";
     for (const auto& sq : squareInfo.bestSolution) {
         std::cout << sq.squareLeftUpCoordinates.x << " "
                   << sq.squareLeftUpCoordinates.y << " "
                   << sq.squareSide << "\n";
     }
+
     delete[] squareInfo.binGrid;
     delete[] squareInfo.fullGridMask;
     return EXIT_SUCCESS;
