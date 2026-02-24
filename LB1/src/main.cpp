@@ -77,8 +77,7 @@ struct Square {
 в сетке квадратов.
 - size_t gridSide -- сторона сетки.
 - uint64_t* binGrid -- массив битового представления строк сетки.
-- uint64_t* fullGridMask -- маска для основной сетки, чтобы не вычислять каждый
-раз.
+- uint64_t fullLineMask -- маска для строки, чтобы не вычислять каждый раз.
 - std::vector<Square> currentSolution -- вектор для хранения координат
 и сторон квадратов размещенных в сетке в текущей ветке рекурсии.
 - std::vector<Square> bestSolution -- вектор для хранения лучших координат и
@@ -94,7 +93,7 @@ struct GridState {
     size_t bestPartsCount;
     size_t gridSide;
     uint64_t* binGrid;
-    uint64_t* fullGridMask;
+    uint64_t fullLineMask;
     #if COMPLEXITY_ANALYSIS
         uint64_t calls;
         uint64_t canPlaceChecks;
@@ -106,27 +105,28 @@ struct GridState {
 
 /*
 Функция принимает на вход размер сетки gridSide, размер вставляемого квадрата
-subSquareSide и координаты верхнего левого угла этого квадрата leftUpCoord.
+squareSide и координаты верхнего левого угла этого квадрата leftUpCoord.
 Возвращает true, если квадрат не выходит за границу сетки и false, если выходит.
 */
-bool fitsInsideGrid(size_t gridSide, size_t subSquareSide, Position leftUpCoord) {
-    return leftUpCoord.x + subSquareSide <= gridSide &&
-    leftUpCoord.y + subSquareSide <= gridSide;
+bool fitsInsideGrid(size_t gridSide, size_t squareSide, Position leftUpCoord) {
+    return leftUpCoord.x + squareSide <= gridSide &&
+    leftUpCoord.y + squareSide <= gridSide;
 }
 
 /*
-Функция принимает на вход размер сетки gridSide, размер вставляемого квадрата
-subSquareSide и координаты верхнего левого угла этого квадрата leftUpCoord.
+Функция принимает на вход ссылку на структуру GridState state,
+размер вставляемого квадрата squareSide и координаты верхнего левого угла этого
+квадрата leftUpCoord.
 */
-bool canPlace(GridState& state, size_t side, Position leftUpCoord) {
+bool canPlace(GridState& state, size_t squareSide, Position leftUpCoord) {
     #if COMPLEXITY_ANALYSIS
-        ++s.canPlaceChecks;
+        ++state.canPlaceChecks;
     #endif
-    if (!fitsInsideGrid(state.gridSide, side, leftUpCoord)) {
+    if (!fitsInsideGrid(state.gridSide, squareSide, leftUpCoord)) {
         return false;
     }
-    uint64_t line = ((1ULL << side) - 1) << leftUpCoord.x;
-    for (size_t i = 0; i < side; ++i) {
+    uint64_t line = ((1ULL << squareSide) - 1) << leftUpCoord.x;
+    for (size_t i = 0; i < squareSide; ++i) {
         if (state.binGrid[leftUpCoord.y + i] & line) {
             return false;
         }
@@ -135,17 +135,17 @@ bool canPlace(GridState& state, size_t side, Position leftUpCoord) {
 }
 
 
-void place(GridState& state, size_t side, Position leftUpCoord) {
-    uint64_t line = ((1ULL << side) - 1) << leftUpCoord.x;
-    for (size_t i = 0; i < side; ++i) {
+void place(GridState& state, size_t squareSide, Position leftUpCoord) {
+    uint64_t line = ((1ULL << squareSide) - 1) << leftUpCoord.x;
+    for (size_t i = 0; i < squareSide; ++i) {
         state.binGrid[leftUpCoord.y + i] |= line;
     }
 }
 
 
-void remove(GridState& state, size_t side, Position leftUpCoord) {
-    uint64_t line = ((1ULL << side) - 1) << leftUpCoord.x;
-    for (size_t i = 0; i < side; ++i) {
+void remove(GridState& state, size_t squareSide, Position leftUpCoord) {
+    uint64_t line = ((1ULL << squareSide) - 1) << leftUpCoord.x;
+    for (size_t i = 0; i < squareSide; ++i) {
         state.binGrid[leftUpCoord.y + i] &= ~line;
     }
 }
@@ -153,7 +153,7 @@ void remove(GridState& state, size_t side, Position leftUpCoord) {
 
 Position getFirstPosToNextSquare(GridState& state) {
     for (size_t y = 0; y < state.gridSide; ++y) {
-        uint64_t free = ~state.binGrid[y] & state.fullGridMask[y];
+        uint64_t free = ~state.binGrid[y] & state.fullLineMask;
         if (free) {
             size_t x = __builtin_ctzll(free);
             return {x, y};
@@ -164,8 +164,9 @@ Position getFirstPosToNextSquare(GridState& state) {
 
 
 bool isGridFull(GridState& state) {
+
     for (size_t i = 0; i < state.gridSide; ++i) {
-        if ((state.binGrid[i] & state.fullGridMask[i]) != state.fullGridMask[i]) {
+        if ((state.binGrid[i] & state.fullLineMask) != state.fullLineMask) {
             return false;
         }
     }
@@ -173,13 +174,15 @@ bool isGridFull(GridState& state) {
 }
 
 
-size_t getMaxSquareAtPosition(GridState& s, Position leftUpCoord) {
-    size_t maxPossibleSquareSide = std::min(s.gridSide - leftUpCoord.x, s.gridSide - leftUpCoord.y);
-    if (maxPossibleSquareSide > s.gridSide - 1) {
-        maxPossibleSquareSide = s.gridSide - 1;
+size_t getMaxSquareAtPosition(GridState& state, Position leftUpCoord) {
+    size_t dx = state.gridSide - leftUpCoord.x;
+    size_t dy = state.gridSide - leftUpCoord.y;
+    size_t maxPossibleSquareSide = std::min(dx, dy);
+    if (maxPossibleSquareSide > state.gridSide - 1) {
+        maxPossibleSquareSide = state.gridSide - 1;
     }
     for (size_t side = maxPossibleSquareSide; side > 0; --side) {
-        if (canPlace(s, side, leftUpCoord)) {
+        if (canPlace(state, side, leftUpCoord)) {
             return side;
         }
     }
@@ -189,9 +192,9 @@ size_t getMaxSquareAtPosition(GridState& s, Position leftUpCoord) {
 #if PRINT_INFO
 void printGrid(GridState& state) {
     for (size_t y = 0; y < state.gridSide; ++y) {
-        std::string stringBinLine = std::bitset<64>(state.binGrid[y]).to_string();
-        std::reverse(stringBinLine.begin(), stringBinLine.end());
-        std::cout << stringBinLine.substr(0, state.gridSide) << '\n';
+        std::string strBinLine = std::bitset<64>(state.binGrid[y]).to_string();
+        std::reverse(strBinLine.begin(), strBinLine.end());
+        std::cout << strBinLine.substr(0, state.gridSide) << '\n';
     }
 }
 #endif
@@ -228,17 +231,13 @@ void findMinimalNumberOfPartsRecursive(GridState& state) {
 
 GridState getEmptyGridState(size_t correctSquareSide) {
     uint64_t* emptyGrid = new uint64_t[correctSquareSide]{};
-    uint64_t* fullMask = new uint64_t[correctSquareSide];
     uint64_t fullLine = (1ULL << correctSquareSide) - 1;
-    for (size_t i = 0; i < correctSquareSide; ++i) {
-        fullMask[i] = fullLine;
-    }
     return {
         0,
         INT_MAX,
         correctSquareSide,
         emptyGrid,
-        fullMask,
+        fullLine,
         #if COMPLEXITY_ANALYSIS
             0,
             0,
@@ -411,7 +410,6 @@ int findTheMinimumPartition() {
     #endif
 
     delete[] state.binGrid;
-    delete[] state.fullGridMask;
     return EXIT_SUCCESS;
 }
 
