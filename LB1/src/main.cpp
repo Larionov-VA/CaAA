@@ -5,38 +5,55 @@
 #include <algorithm>
 
 #ifndef STEPIK
-#define STEPIK 1
+    #define STEPIK 1
 #endif
 
-#if !STEPIK
-#include <ctime>
+#ifndef PRINTTIME
+    #define PRINTTIME 0
 #endif
+
+#if PRINTTIME
+    #include <cstdio>
+    #include <ctime>
+#endif
+
+#ifndef PRINTINFO
+    #define PRINTINFO 0
+#endif
+
+#if PRINTINFO
+    #include <bitset>
+    #include <string>
+#endif
+
 
 struct Position {
     size_t x;
     size_t y;
 };
 
+
 struct Square {
     Position squareLeftUpCoordinates;
     size_t squareSide;
 };
 
+
 struct GridState {
     size_t currentPartsCount;
     size_t bestPartsCount;
     size_t gridSide;
-    size_t gridArea;
-    size_t sumOfSquaresAreaInGrid;
     uint64_t* binGrid;
     uint64_t* fullGridMask;
     std::vector<Square> currentSolution;
     std::vector<Square> bestSolution;
 };
 
+
 bool fitsInsideGrid(size_t gridSide, size_t subSquareSide, Position pos) {
     return pos.x + subSquareSide <= gridSide && pos.y + subSquareSide <= gridSide;
 }
+
 
 bool canPlace(GridState& s, size_t side, Position pos) {
     if (!fitsInsideGrid(s.gridSide, side, pos)) {
@@ -51,6 +68,7 @@ bool canPlace(GridState& s, size_t side, Position pos) {
     return true;
 }
 
+
 void place(GridState& s, size_t side, Position pos) {
     uint64_t line = ((1ULL << side) - 1) << pos.x;
     for (size_t i = 0; i < side; ++i) {
@@ -58,12 +76,14 @@ void place(GridState& s, size_t side, Position pos) {
     }
 }
 
+
 void remove(GridState& s, size_t side, Position pos) {
     uint64_t line = ((1ULL << side) - 1) << pos.x;
     for (size_t i = 0; i < side; ++i) {
         s.binGrid[pos.y + i] &= ~line;
     }
 }
+
 
 Position getFirstPosToNextSquare(GridState& s) {
     for (size_t y = 0; y < s.gridSide; ++y) {
@@ -76,6 +96,7 @@ Position getFirstPosToNextSquare(GridState& s) {
     return {0, 0};
 }
 
+
 bool isGridFull(GridState& s) {
     for (size_t i = 0; i < s.gridSide; ++i) {
         if ((s.binGrid[i] & s.fullGridMask[i]) != s.fullGridMask[i]) {
@@ -85,12 +106,13 @@ bool isGridFull(GridState& s) {
     return true;
 }
 
+
 size_t getMaxSquareAtPosition(GridState& s, Position pos) {
-    size_t maxPossible = std::min(s.gridSide - pos.x, s.gridSide - pos.y);
-    if (maxPossible > s.gridSide - 1) {
-        maxPossible = s.gridSide - 1;
+    size_t maxPossibleSquareSide = std::min(s.gridSide - pos.x, s.gridSide - pos.y);
+    if (maxPossibleSquareSide > s.gridSide - 1) {
+        maxPossibleSquareSide = s.gridSide - 1;
     }
-    for (size_t side = maxPossible; side > 0; --side) {
+    for (size_t side = maxPossibleSquareSide; side > 0; --side) {
         if (canPlace(s, side, pos)) {
             return side;
         }
@@ -98,8 +120,20 @@ size_t getMaxSquareAtPosition(GridState& s, Position pos) {
     return 0;
 }
 
+#if PRINTINFO
+void printGrid(GridState& s) {
+    for (size_t y = 0; y < s.gridSide; ++y) {
+        std::string stringBinLine = std::bitset<64>(s.binGrid[y]).to_string();
+        std::reverse(stringBinLine.begin(), stringBinLine.end());
+        std::cout << stringBinLine.substr(0, s.gridSide) << '\n';
+    }
+}
+#endif
 
 void findMinimalNumberOfPartsRecursive(GridState& s) {
+    #if PRINTINFO
+        printGrid(s);
+    #endif
     if (s.currentPartsCount >= s.bestPartsCount) {
         return;
     }
@@ -108,23 +142,20 @@ void findMinimalNumberOfPartsRecursive(GridState& s) {
         s.bestSolution = s.currentSolution;
         return;
     }
+
     Position pos = getFirstPosToNextSquare(s);
     size_t maxSide = getMaxSquareAtPosition(s, pos);
     for (size_t side = maxSide; side > 0; --side) {
-        if (!canPlace(s, side, pos)) {
-            continue;
-        }
         place(s, side, pos);
         s.currentSolution.push_back({{pos.x + 1, pos.y + 1}, side});
-        s.sumOfSquaresAreaInGrid += side * side;
         ++s.currentPartsCount;
         findMinimalNumberOfPartsRecursive(s);
         remove(s, side, pos);
         s.currentSolution.pop_back();
-        s.sumOfSquaresAreaInGrid -= side * side;
         --s.currentPartsCount;
     }
 }
+
 
 GridState getEmptyGridState(size_t correctSquareSide) {
     uint64_t* emptyGrid = new uint64_t[correctSquareSide]{};
@@ -137,14 +168,13 @@ GridState getEmptyGridState(size_t correctSquareSide) {
         0,
         INT_MAX,
         correctSquareSide,
-        correctSquareSide * correctSquareSide,
-        0,
         emptyGrid,
         fullMask,
         {},
         {}
     };
 }
+
 
 bool isPrime(size_t n) {
     if (n <= 1) return false;
@@ -158,6 +188,7 @@ bool isPrime(size_t n) {
     return true;
 }
 
+
 void prefillGridForKnownPatterns(GridState& s) {
     size_t N = s.gridSide;
     if (N % 2 == 0) {
@@ -167,7 +198,6 @@ void prefillGridForKnownPatterns(GridState& s) {
             for (size_t x0 : coords) {
                 place(s, half, {x0, y0});
                 s.currentSolution.push_back({{x0 + 1, y0 + 1}, half});
-                s.sumOfSquaresAreaInGrid += half * half;
                 ++s.currentPartsCount;
             }
         }
@@ -181,7 +211,6 @@ void prefillGridForKnownPatterns(GridState& s) {
         for (int i = 0; i < 6; ++i) {
             place(s, S[i], {X[i], Y[i]});
             s.currentSolution.push_back({{X[i] + 1, Y[i] + 1}, S[i]});
-            s.sumOfSquaresAreaInGrid += S[i] * S[i];
             ++s.currentPartsCount;
         }
     }
@@ -190,15 +219,12 @@ void prefillGridForKnownPatterns(GridState& s) {
         size_t s2 = N / 2;
         place(s, s1, {0, 0});
         s.currentSolution.push_back({{1, 1}, s1});
-        s.sumOfSquaresAreaInGrid += s1 * s1;
         ++s.currentPartsCount;
         place(s, s2, {0, s2 + 1});
         s.currentSolution.push_back({{1, s2 + 2}, s2});
-        s.sumOfSquaresAreaInGrid += s2 * s2;
         ++s.currentPartsCount;
         place(s, s2, {s2 + 1, 0});
         s.currentSolution.push_back({{s2 + 2, 1}, s2});
-        s.sumOfSquaresAreaInGrid += s2 * s2;
         ++s.currentPartsCount;
     }
 }
@@ -209,6 +235,7 @@ size_t reduceToPrimeBase(size_t& N) {
         if (N % p == 0 && isPrime(p)) {
             size_t scale = N / p;
             N = p;
+
             return scale;
         }
     }
@@ -216,42 +243,90 @@ size_t reduceToPrimeBase(size_t& N) {
 }
 
 
-int main() {
-    long long squareSide;
-    std::cin >> squareSide;
-    if (squareSide < 2 || squareSide > 63)
-        return EXIT_FAILURE;
-
 #if !STEPIK
-    clock_t start = clock();
+    bool individualizationFunction(GridState& state) {
+        int numberOfSquares = 0;
+        std::cin >> numberOfSquares;
+        Position leftUpCoordOfSquare;
+        long long currentSuareSide;
+        for (int i = 0; i < numberOfSquares; ++i) {
+            std::cin >> leftUpCoordOfSquare.x >> leftUpCoordOfSquare.y >> currentSuareSide;
+            if (currentSuareSide < 1 || currentSuareSide > state.gridSide) {
+                return false;
+            }
+            Position currentPosition = {leftUpCoordOfSquare.x - 1, leftUpCoordOfSquare.y - 1};
+            place(state, currentSuareSide, currentPosition);
+            Square currentSquare = {{leftUpCoordOfSquare.x, leftUpCoordOfSquare.y}, (size_t)currentSuareSide};
+            state.currentSolution.push_back(currentSquare);
+            state.currentPartsCount++;
+        }
+        if (!numberOfSquares) {
+            prefillGridForKnownPatterns(state);
+        }
+        return true;
+    }
 #endif
 
-    size_t N = static_cast<size_t>(squareSide);
-    size_t scale = reduceToPrimeBase(N);
-    GridState state = getEmptyGridState(N);
-    prefillGridForKnownPatterns(state);
-    findMinimalNumberOfPartsRecursive(state);
+
+void printStepikAnswer(GridState& state, size_t scale) {
     std::cout << state.bestPartsCount << "\n";
     for (const auto& sq : state.bestSolution) {
         size_t x = sq.squareLeftUpCoordinates.x;
         size_t y = sq.squareLeftUpCoordinates.y;
         size_t s = sq.squareSide;
-
         if (scale > 1) {
             if (x != 1) x = (x - 1) * scale + 1;
             if (y != 1) y = (y - 1) * scale + 1;
             s *= scale;
         }
-
         std::cout << x << " " << y << " " << s << "\n";
     }
-#if !STEPIK
-    clock_t end = clock();
-    double seconds = (double)(end - start) / CLOCKS_PER_SEC;
-    std::cout << "Время выполнения: " << seconds << " секунд" << std::endl;
-#endif
+}
 
+
+void getOptimisation(GridState& state, size_t& N, size_t& scale) {
+    if (state.currentPartsCount == 0) {
+        scale = reduceToPrimeBase(N);
+        if (scale > 1) {
+            state = getEmptyGridState(N);
+        }
+        state = getEmptyGridState(N);
+        prefillGridForKnownPatterns(state);
+    }
+}
+
+
+int findTheMinimumPartition() {
+    long long squareSide;
+    std::cin >> squareSide;
+    if (squareSide < 2 || squareSide > 63) {
+        return EXIT_FAILURE;
+    }
+    size_t N = static_cast<size_t>(squareSide);
+    GridState state = getEmptyGridState(N);
+    size_t scale = 1;
+    #if PRINTTIME
+        clock_t start = clock();
+    #endif
+    #if !STEPIK
+        if (!individualizationFunction(state)) {
+            return EXIT_FAILURE;
+        }
+    #endif
+    getOptimisation(state, N, scale);
+    findMinimalNumberOfPartsRecursive(state);
+    printStepikAnswer(state, scale);
+    #if PRINTTIME
+        clock_t end = clock();
+        double seconds = (double)(end - start) / CLOCKS_PER_SEC;
+        printf("Время выполнения: %.6f секунд\n", seconds);
+    #endif
     delete[] state.binGrid;
     delete[] state.fullGridMask;
     return EXIT_SUCCESS;
+}
+
+
+int main() {
+    return findTheMinimumPartition();
 }
