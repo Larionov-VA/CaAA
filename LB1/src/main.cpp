@@ -8,11 +8,11 @@
     #define STEPIK 1
 #endif
 
-#ifndef PRINTTIME
-    #define PRINTTIME 0
+#ifndef COMPLEXITY_ANALYSIS
+    #define COMPLEXITY_ANALYSIS 0
 #endif
 
-#if PRINTTIME
+#if COMPLEXITY_ANALYSIS
     #include <cstdio>
     #include <ctime>
 #endif
@@ -45,6 +45,12 @@ struct GridState {
     size_t gridSide;
     uint64_t* binGrid;
     uint64_t* fullGridMask;
+    #if COMPLEXITY_ANALYSIS
+        /* число рекурсивных вызовов */
+        uint64_t calls;
+        /* число проверок canPlace */
+        uint64_t canPlaceChecks;
+    #endif
     std::vector<Square> currentSolution;
     std::vector<Square> bestSolution;
 };
@@ -56,6 +62,9 @@ bool fitsInsideGrid(size_t gridSide, size_t subSquareSide, Position pos) {
 
 
 bool canPlace(GridState& s, size_t side, Position pos) {
+    #if COMPLEXITY_ANALYSIS
+        ++s.canPlaceChecks;
+    #endif
     if (!fitsInsideGrid(s.gridSide, side, pos)) {
         return false;
     }
@@ -131,6 +140,9 @@ void printGrid(GridState& s) {
 #endif
 
 void findMinimalNumberOfPartsRecursive(GridState& s) {
+    #if COMPLEXITY_ANALYSIS
+        ++s.calls;
+    #endif
     #if PRINTINFO
         printGrid(s);
     #endif
@@ -170,6 +182,10 @@ GridState getEmptyGridState(size_t correctSquareSide) {
         correctSquareSide,
         emptyGrid,
         fullMask,
+        #if COMPLEXITY_ANALYSIS
+            0,
+            0,
+        #endif
         {},
         {}
     };
@@ -251,7 +267,7 @@ size_t reduceToPrimeBase(size_t& N) {
         long long currentSuareSide;
         for (int i = 0; i < numberOfSquares; ++i) {
             std::cin >> leftUpCoordOfSquare.x >> leftUpCoordOfSquare.y >> currentSuareSide;
-            if (currentSuareSide < 1 || currentSuareSide > state.gridSide) {
+            if (currentSuareSide < 1 || currentSuareSide > (long long)state.gridSide) {
                 return false;
             }
             Position currentPosition = {leftUpCoordOfSquare.x - 1, leftUpCoordOfSquare.y - 1};
@@ -305,7 +321,7 @@ int findTheMinimumPartition() {
     size_t N = static_cast<size_t>(squareSide);
     GridState state = getEmptyGridState(N);
     size_t scale = 1;
-    #if PRINTTIME
+    #if COMPLEXITY_ANALYSIS
         clock_t start = clock();
     #endif
     #if !STEPIK
@@ -316,10 +332,12 @@ int findTheMinimumPartition() {
     getOptimisation(state, N, scale);
     findMinimalNumberOfPartsRecursive(state);
     printStepikAnswer(state, scale);
-    #if PRINTTIME
+    #if COMPLEXITY_ANALYSIS
         clock_t end = clock();
         double seconds = (double)(end - start) / CLOCKS_PER_SEC;
         printf("Время выполнения: %.6f секунд\n", seconds);
+        printf("Рекурсивных вызовов: %lu\n", state.calls);
+        printf("Проверок canPlace: %lu\n", state.canPlaceChecks);
     #endif
     delete[] state.binGrid;
     delete[] state.fullGridMask;
