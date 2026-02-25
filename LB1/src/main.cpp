@@ -136,49 +136,53 @@ bool canPlace(GridState& state, size_t squareSide, Position leftUpCoord) {
     return true;
 }
 
+/*
+Функция принимает на вход размер вставляемого квадрата squareSide и координату.
+Возвращает маску для строки, соответствующую вставляемому квадрату.
+*/
+inline uint64_t getLineMask(size_t squareSide, size_t xCoord) {
+    return ((1ULL << squareSide) - 1) << xCoord;
+}
+
 
 /*
-Функция принимает на вход ссылку на структуру GridState state,
-размер вставляемого квадрата squareSide и координаты верхнего левого угла этого
-квадрата leftUpCoord.
-Создает маску строки соответствующую встваляемому квадрату. Итерируясь от
-верхней координаты квадрата к нижней, вставляет максу строки в строку сетки с
-помощью побитового ИЛИ с присваиванием.
+Функция принимает на вход ссылку на структуру GridState state, маску для строк
+lineMask, размер вставляемого квадрата squareSide и координату верхнего левого
+угла этого квадрата yCoord.
+Итерируясь от верхней координаты квадрата к нижней, вставляет максу строки в
+строку сетки с помощью побитового ИЛИ с присваиванием.
 Пример:
 state.binGrid | squareSide | leftUpCoord |   line    | result  |
- 0b00111      | 2          | {3,0}       | 1 0b00100 | 0b11111 |
- 0b00111      |            |             | 2 0b00011 | 0b11111 |
- 0b00111      |            |             | 3 0b11000 | 0b00111 |
+ 0b00111      | 2          | {3,0}       |  0b11000  | 0b11111 |
+ 0b00111      |            |             |           | 0b11111 |
+ 0b00111      |            |             |           | 0b00111 |
  0b00000      |            |             |           | 0b00000 |
  0b00000      |            |             |           | 0b00000 |
 */
-void place(GridState& state, size_t squareSide, Position leftUpCoord) {
-    uint64_t line = ((1ULL << squareSide) - 1) << leftUpCoord.x;
+void place(GridState& state, uint64_t lineMask, size_t squareSide, size_t yCoord) {
     for (size_t i = 0; i < squareSide; ++i) {
-        state.binGrid[leftUpCoord.y + i] |= line;
+        state.binGrid[yCoord + i] |= lineMask;
     }
 }
 
 
 /*
-Функция принимает на вход ссылку на структуру GridState state,
-размер вставляемого квадрата squareSide и координаты верхнего левого угла этого
-квадрата leftUpCoord.
-Создает маску строки соответствующую удаляемому квадрату. Итерируясь от
-верхней координаты квадрата к нижней, вставляет инвертированную максу строки в
-строку сетки с помощью побитового И с присваиванием.
+Функция принимает на вход ссылку на структуру GridState state, маску для строк
+lineMask, размер вставляемого квадрата squareSide и координату верхнего левого
+угла этого квадрата yCoord.
+Итерируясь от верхней координаты квадрата к нижней, вставляет инвертированную
+максу строки в строку сетки с помощью побитового И с присваиванием.
 Пример:
 state.binGrid | squareSide | leftUpCoord |   line    | result  |
- 0b11111      | 2          | {3,0}       | 1 0b00100 | 0b00111 |
- 0b11111      |            |             | 2 0b00011 | 0b00111 |
- 0b00111      |            |             | 3 0b11000 | 0b00111 |
- 0b00000      |            |             | ~ 0b00111 | 0b00000 |
+ 0b11111      | 2          | {3,0}       |  0b11000  | 0b00111 |
+ 0b11111      |            |             |           | 0b00111 |
+ 0b00111      |            |             |           | 0b00111 |
+ 0b00000      |            |             |           | 0b00000 |
  0b00000      |            |             |           | 0b00000 |
 */
-void remove(GridState& state, size_t squareSide, Position leftUpCoord) {
-    uint64_t line = ((1ULL << squareSide) - 1) << leftUpCoord.x;
+void remove(GridState& state, uint64_t lineMask, size_t squareSide, size_t yCoord) {
     for (size_t i = 0; i < squareSide; ++i) {
-        state.binGrid[leftUpCoord.y + i] &= ~line;
+        state.binGrid[yCoord + i] &= ~lineMask;
     }
 }
 
@@ -248,7 +252,13 @@ size_t getMaxSquareAtPosition(GridState& state, Position leftUpCoord) {
     return 0;
 }
 
+
 #if PRINT_INFO
+/*
+Фунция принимает на вход ссылку на структуру GridState. Выводит в консоль
+бинарное представление строки в перевернутом виде, чтобы она выглядела
+так как должна выглядеть в соответствии с условием.
+*/
 void printGrid(GridState& state) {
     for (size_t y = 0; y < state.gridSide; ++y) {
         std::string strBinLine = std::bitset<64>(state.binGrid[y]).to_string();
@@ -257,6 +267,7 @@ void printGrid(GridState& state) {
     }
 }
 #endif
+
 
 void findMinimalNumberOfPartsRecursive(GridState& state) {
     #if COMPLEXITY_ANALYSIS
@@ -277,11 +288,12 @@ void findMinimalNumberOfPartsRecursive(GridState& state) {
     Position leftUpCoord = getFirstPosToNextSquare(state);
     size_t maxSide = getMaxSquareAtPosition(state, leftUpCoord);
     for (size_t side = maxSide; side > 0; --side) {
-        place(state, side, leftUpCoord);
+        uint64_t currentLineMask = getLineMask(side, leftUpCoord.x);
+        place(state, currentLineMask, side, leftUpCoord.y);
         state.currentSolution.push_back({{leftUpCoord.x + 1, leftUpCoord.y + 1}, side});
         ++state.currentPartsCount;
         findMinimalNumberOfPartsRecursive(state);
-        remove(state, side, leftUpCoord);
+        remove(state, currentLineMask, side, leftUpCoord.y);
         state.currentSolution.pop_back();
         --state.currentPartsCount;
     }
@@ -327,7 +339,7 @@ void prefillGridForKnownPatterns(GridState& state) {
         size_t coords[2] = {0, half};
         for (size_t y0 : coords) {
             for (size_t x0 : coords) {
-                place(state, half, {x0, y0});
+                place(state, getLineMask(half, x0), half, y0);
                 state.currentSolution.push_back({{x0 + 1, y0 + 1}, half});
                 ++state.currentPartsCount;
             }
@@ -340,7 +352,7 @@ void prefillGridForKnownPatterns(GridState& state) {
         size_t Y[6] = {0, 0, k, k2, k2, k2};
         size_t S[6] = {k2, k, k, k, k, k};
         for (int i = 0; i < 6; ++i) {
-            place(state, S[i], {X[i], Y[i]});
+            place(state, getLineMask(S[i], X[i]), S[i], Y[i]);
             state.currentSolution.push_back({{X[i] + 1, Y[i] + 1}, S[i]});
             ++state.currentPartsCount;
         }
@@ -348,13 +360,13 @@ void prefillGridForKnownPatterns(GridState& state) {
     else if (isPrime(N)) {
         size_t s1 = N / 2 + 1;
         size_t s2 = N / 2;
-        place(state, s1, {0, 0});
+        place(state, getLineMask(s1, 0), s1, 0);
         state.currentSolution.push_back({{1, 1}, s1});
         ++state.currentPartsCount;
-        place(state, s2, {0, s2 + 1});
+        place(state, getLineMask(s2, 0), s2, s2 + 1);
         state.currentSolution.push_back({{1, s2 + 2}, s2});
         ++state.currentPartsCount;
-        place(state, s2, {s2 + 1, 0});
+        place(state, getLineMask(s2, s2 + 1), s2, 0);
         state.currentSolution.push_back({{s2 + 2, 1}, s2});
         ++state.currentPartsCount;
     }
@@ -385,7 +397,7 @@ size_t reduceToPrimeBase(size_t& N) {
                 return false;
             }
             Position currentPosition = {leftUpCoordOfSquare.x - 1, leftUpCoordOfSquare.y - 1};
-            place(state, currentSuareSide, currentPosition);
+            place(state, getLineMask(currentSuareSide, currentPosition.x), currentSuareSide, currentPosition);
             Square currentSquare = {{leftUpCoordOfSquare.x, leftUpCoordOfSquare.y}, (size_t)currentSuareSide};
             state.currentSolution.push_back(currentSquare);
             state.currentPartsCount++;
