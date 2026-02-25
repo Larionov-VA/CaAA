@@ -3,7 +3,6 @@
 #include <vector>
 #include <cstdint>
 #include <algorithm>
-
 /*
 Если при компиляции добавить флаг STEPIK=0, то будет скопмилированна версия
 предусмотренная индивидуализацией. При проверке на stepik.org по умолчанию будет
@@ -113,10 +112,13 @@ bool fitsInsideGrid(size_t gridSide, size_t squareSide, Position leftUpCoord) {
     leftUpCoord.y + squareSide <= gridSide;
 }
 
+
 /*
 Функция принимает на вход ссылку на структуру GridState state,
 размер вставляемого квадрата squareSide и координаты верхнего левого угла этого
 квадрата leftUpCoord.
+Возвращает true, если квадрат со стороной squareSide и координатами  leftUpCoord
+можно вставить в сетку.
 */
 bool canPlace(GridState& state, size_t squareSide, Position leftUpCoord) {
     #if COMPLEXITY_ANALYSIS
@@ -135,6 +137,21 @@ bool canPlace(GridState& state, size_t squareSide, Position leftUpCoord) {
 }
 
 
+/*
+Функция принимает на вход ссылку на структуру GridState state,
+размер вставляемого квадрата squareSide и координаты верхнего левого угла этого
+квадрата leftUpCoord.
+Создает маску строки соответствующую встваляемому квадрату. Итерируясь от
+верхней координаты квадрата к нижней, вставляет максу строки в строку сетки с
+помощью побитового ИЛИ с присваиванием.
+Пример:
+state.binGrid | squareSide | leftUpCoord |   line    | result  |
+ 0b00111      | 2          | {3,0}       | 1 0b00100 | 0b11111 |
+ 0b00111      |            |             | 2 0b00011 | 0b11111 |
+ 0b00111      |            |             | 3 0b11000 | 0b00111 |
+ 0b00000      |            |             |           | 0b00000 |
+ 0b00000      |            |             |           | 0b00000 |
+*/
 void place(GridState& state, size_t squareSide, Position leftUpCoord) {
     uint64_t line = ((1ULL << squareSide) - 1) << leftUpCoord.x;
     for (size_t i = 0; i < squareSide; ++i) {
@@ -143,6 +160,21 @@ void place(GridState& state, size_t squareSide, Position leftUpCoord) {
 }
 
 
+/*
+Функция принимает на вход ссылку на структуру GridState state,
+размер вставляемого квадрата squareSide и координаты верхнего левого угла этого
+квадрата leftUpCoord.
+Создает маску строки соответствующую удаляемому квадрату. Итерируясь от
+верхней координаты квадрата к нижней, вставляет инвертированную максу строки в
+строку сетки с помощью побитового И с присваиванием.
+Пример:
+state.binGrid | squareSide | leftUpCoord |   line    | result  |
+ 0b11111      | 2          | {3,0}       | 1 0b00100 | 0b00111 |
+ 0b11111      |            |             | 2 0b00011 | 0b00111 |
+ 0b00111      |            |             | 3 0b11000 | 0b00111 |
+ 0b00000      |            |             | ~ 0b00111 | 0b00000 |
+ 0b00000      |            |             |           | 0b00000 |
+*/
 void remove(GridState& state, size_t squareSide, Position leftUpCoord) {
     uint64_t line = ((1ULL << squareSide) - 1) << leftUpCoord.x;
     for (size_t i = 0; i < squareSide; ++i) {
@@ -151,6 +183,9 @@ void remove(GridState& state, size_t squareSide, Position leftUpCoord) {
 }
 
 
+/*
+
+*/
 Position getFirstPosToNextSquare(GridState& state) {
     for (size_t y = 0; y < state.gridSide; ++y) {
         uint64_t free = ~state.binGrid[y] & state.fullLineMask;
