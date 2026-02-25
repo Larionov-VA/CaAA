@@ -184,7 +184,28 @@ void remove(GridState& state, size_t squareSide, Position leftUpCoord) {
 
 
 /*
+Функция получает на вход ссылку на структуру GridState, возвращает первую
+левую сверху позицию.
+Встроенная функция компилятора gcc (g++)__builtin_ctzll используется для
+получения количества нулей в бинарном представлении строки стоящих в
+младших битах.
 
+Примеры:
+ state.binGrid | free       | __builtin_ctzll | result  |
+ 0b00111       | 0b11000    | 3               | 3,0     |
+ 0b00111       |            |                 |         |
+ 0b00111       |            |                 |         |
+ 0b00000       |            |                 |         |
+ 0b00000       |            |                 |         |
+
+ state.binGrid | free       | __builtin_ctzll | result  |
+ 0b1111111     | 0b0000000  | -               | -       |
+ 0b1111111     | 0b0000000  | -               | -       |
+ 0b1111111     | 0b0000000  | -               | -       |
+ 0b1111111     | 0b0000000  | -               | -       |
+ 0b0000011     | 0b1111100  | 2               | 2,5     |
+ 0b0000000     |            |                 |         |
+ 0b0000000     |            |                 |         |
 */
 Position getFirstPosToNextSquare(GridState& state) {
     for (size_t y = 0; y < state.gridSide; ++y) {
@@ -197,9 +218,12 @@ Position getFirstPosToNextSquare(GridState& state) {
     return {0, 0};
 }
 
-
+/*
+Функция получает на вход ссылку на структуру GridState, возвращает false, если
+находит не до конца заполненную строку и true, если прошла по всем строкам и
+не нашла строк не равных полной маске строки.
+*/
 bool isGridFull(GridState& state) {
-
     for (size_t i = 0; i < state.gridSide; ++i) {
         if ((state.binGrid[i] & state.fullLineMask) != state.fullLineMask) {
             return false;
@@ -398,8 +422,10 @@ void printStepikAnswer(GridState& state, size_t scale) {
 заканчивается.
 Если оптимизация сокращения стороны применяется, то создается новая пустая
 сетка, меньше предыдущей на scale.
-После создания новой сетки (если требуется) GridState& state передается
-в функцию void prefillGridForKnownPatterns(GridState& state).
+После, если scale был изменен (>1), создается новая сетка state, меньше
+предыдущей на scale, далее сетка передается в функцию
+void prefillGridForKnownPatterns(GridState& state) для предзаполнения, если
+это возможно.
 */
 void getOptimisation(GridState& state, size_t& N, size_t& scale) {
     if (state.currentPartsCount == 0) {
