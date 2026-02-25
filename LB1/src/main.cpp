@@ -237,6 +237,11 @@ bool isGridFull(GridState& state) {
 }
 
 
+/*
+Функция получает на вход ссылку на структуру GridState и координаты левого
+верхнего угла квадрата leftUpCoord. Возвращает максимальную сторону квадрата, который можно
+поместить в leftUpCoord.
+*/
 size_t getMaxSquareAtPosition(GridState& state, Position leftUpCoord) {
     size_t dx = state.gridSide - leftUpCoord.x;
     size_t dy = state.gridSide - leftUpCoord.y;
@@ -256,8 +261,7 @@ size_t getMaxSquareAtPosition(GridState& state, Position leftUpCoord) {
 #if PRINT_INFO
 /*
 Фунция принимает на вход ссылку на структуру GridState. Выводит в консоль
-бинарное представление строки в перевернутом виде, чтобы она выглядела
-так как должна выглядеть в соответствии с условием.
+сетку переворачивая и обрезая битовое представление.
 */
 void printGrid(GridState& state) {
     for (size_t y = 0; y < state.gridSide; ++y) {
@@ -284,7 +288,6 @@ void findMinimalNumberOfPartsRecursive(GridState& state) {
         state.bestSolution = state.currentSolution;
         return;
     }
-
     Position leftUpCoord = getFirstPosToNextSquare(state);
     size_t maxSide = getMaxSquareAtPosition(state, leftUpCoord);
     for (size_t side = maxSide; side > 0; --side) {
