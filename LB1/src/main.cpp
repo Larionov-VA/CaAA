@@ -43,6 +43,8 @@ COMPLEXITY_ANALYSIS=0, что позволяет проходить провер
 #if PRINT_INFO
     #include <bitset>
     #include <string>
+    #include <fstream>
+    std::ofstream out("intermediate_results.txt");
 #endif
 
 
@@ -159,9 +161,9 @@ state.binGrid | squareSide | leftUpCoord |   line    | result  |
  0b00000      |            |             |           | 0b00000 |
  0b00000      |            |             |           | 0b00000 |
 */
-void place(GridState& state, uint64_t lineMask, size_t squareSide, size_t yCoord) {
+void place(GridState& state, uint64_t lineMask, size_t squareSide, size_t y) {
     for (size_t i = 0; i < squareSide; ++i) {
-        state.binGrid[yCoord + i] |= lineMask;
+        state.binGrid[y + i] |= lineMask;
     }
 }
 
@@ -180,9 +182,9 @@ state.binGrid | squareSide | leftUpCoord |   line    | result  |
  0b00000      |            |             |           | 0b00000 |
  0b00000      |            |             |           | 0b00000 |
 */
-void remove(GridState& state, uint64_t lineMask, size_t squareSide, size_t yCoord) {
+void remove(GridState& state, uint64_t lineMask, size_t squareSide, size_t y) {
     for (size_t i = 0; i < squareSide; ++i) {
-        state.binGrid[yCoord + i] &= ~lineMask;
+        state.binGrid[y + i] &= ~lineMask;
     }
 }
 
@@ -239,8 +241,8 @@ bool isGridFull(GridState& state) {
 
 /*
 Функция получает на вход ссылку на структуру GridState и координаты левого
-верхнего угла квадрата leftUpCoord. Возвращает максимальную сторону квадрата, который можно
-поместить в leftUpCoord.
+верхнего угла квадрата leftUpCoord. Возвращает максимальную сторону квадрата,
+который можно поместить в leftUpCoord.
 */
 size_t getMaxSquareAtPosition(GridState& state, Position leftUpCoord) {
     size_t dx = state.gridSide - leftUpCoord.x;
@@ -264,28 +266,60 @@ size_t getMaxSquareAtPosition(GridState& state, Position leftUpCoord) {
 сетку переворачивая и обрезая битовое представление.
 */
 void printGrid(GridState& state) {
+    out << '\n';
     for (size_t y = 0; y < state.gridSide; ++y) {
         std::string strBinLine = std::bitset<64>(state.binGrid[y]).to_string();
         std::reverse(strBinLine.begin(), strBinLine.end());
-        std::cout << strBinLine.substr(0, state.gridSide) << '\n';
+        out << strBinLine.substr(0, state.gridSide) << '\n';
     }
+    out << '\n';
 }
 #endif
 
 
+/*
+Функция получает на вход ссылку на структуру GridState state.
+Рекурсивно перебирает все возможные варианты разбиения сетки на квадраты
+с использованием возврата (backtracking).
+
+Алгоритм работы:
+1) Если текущее количество квадратов в ветке >= лучшему найденному,
+   дальнейший перебор не имеет смысла — происходит отсечение ветки.
+2) Если сетка полностью заполнена, обновляется лучшее решение.
+3) Находится первая свободная сверху слева позиция.
+4) В этой позиции перебираются все возможные стороны квадрата
+   (от максимальной к минимальной).
+5) Квадрат размещается, вызывается рекурсия, затем происходит откат состояния.
+
+Если при компиляции задан флаг COMPLEXITY_ANALYSIS=1,
+то дополнительно увеличивается счетчик рекурсивных вызовов.
+*/
 void findMinimalNumberOfPartsRecursive(GridState& state) {
     #if COMPLEXITY_ANALYSIS
         ++state.calls;
     #endif
-    #if PRINT_INFO
-        printGrid(state);
-    #endif
-    if (state.currentPartsCount >= state.bestPartsCount) {
+    // #if PRINT_INFO
+    //     printGrid(state);
+    // #endif
+    if (state.currentPartsCount == state.bestPartsCount) {
+        #if PRINT_INFO
+            out << "Текущее разбиение currentPartsCount = "
+                << state.currentPartsCount
+                << " квадратов,\nчто равно лучшему разбиению bestPartsCount = "
+                << state.bestPartsCount << ".\nОбрезаем эту ветвь рекурсии.\n";
+        #endif
         return;
     }
     if (isGridFull(state)) {
+        #if PRINT_INFO
+            out << "Найдено полное разбиение.\nПредыдущее лучшее разбиение: "
+                << (state.bestPartsCount == SIZE_MAX ? "-" : std::to_string(state.bestPartsCount))
+                << "\nНовое лучшее разбиение: "
+                << state.currentPartsCount << "\n";
+        #endif
         state.bestPartsCount = state.currentPartsCount;
         state.bestSolution = state.currentSolution;
+
         return;
     }
     Position leftUpCoord = getFirstPosToNextSquare(state);
@@ -293,7 +327,8 @@ void findMinimalNumberOfPartsRecursive(GridState& state) {
     for (size_t side = maxSide; side > 0; --side) {
         uint64_t currentLineMask = getLineMask(side, leftUpCoord.x);
         place(state, currentLineMask, side, leftUpCoord.y);
-        state.currentSolution.push_back({{leftUpCoord.x + 1, leftUpCoord.y + 1}, side});
+        Square currentSquare = {{leftUpCoord.x + 1, leftUpCoord.y + 1}, side};
+        state.currentSolution.push_back(currentSquare);
         ++state.currentPartsCount;
         findMinimalNumberOfPartsRecursive(state);
         remove(state, currentLineMask, side, leftUpCoord.y);
@@ -303,12 +338,24 @@ void findMinimalNumberOfPartsRecursive(GridState& state) {
 }
 
 
+/*
+Функция принимает на вход размер сетки correctSquareSide.
+Создает пустую структуру GridState:
+- выделяет динамический массив строк binGrid,
+- инициализирует его нулями,
+- вычисляет полную маску строки fullLine,
+- устанавливает currentPartsCount = 0,
+- устанавливает bestPartsCount = INT_MAX,
+- инициализирует векторы решений как пустые.
+
+Возвращает созданную структуру GridState.
+*/
 GridState getEmptyGridState(size_t correctSquareSide) {
     uint64_t* emptyGrid = new uint64_t[correctSquareSide]{};
     uint64_t fullLine = (1ULL << correctSquareSide) - 1;
     return {
         0,
-        INT_MAX,
+        SIZE_MAX,
         correctSquareSide,
         emptyGrid,
         fullLine,
@@ -322,6 +369,15 @@ GridState getEmptyGridState(size_t correctSquareSide) {
 }
 
 
+/*
+Функция принимает на вход число N.
+Возвращает true, если N является простым числом, иначе false.
+
+Используется оптимизированная проверка:
+- сначала отсекаются N <= 3,
+- затем проверка делимости на 2 и 3,
+- далее перебор делителей вида 6k ± 1 до sqrt(N).
+*/
 bool isPrime(size_t N) {
     if (N <= 1) return false;
     if (N == 2 || N == 3) return true;
@@ -335,6 +391,28 @@ bool isPrime(size_t N) {
 }
 
 
+/*
+Функция принимает на вход ссылку на структуру GridState state.
+В зависимости от размера сетки N выполняет предзаполнение сетки
+известными шаблонами разбиений, что позволяет сократить перебор.
+
+1) Если N кратно 2:
+   Сетка разбивается на 4 равных квадрата со стороной N/2.
+
+2) Если N кратно 3:
+   Используется известное разбиение на 6 квадратов:
+   один большой 2k x 2k и пять квадратов k x k.
+
+3) Если N — простое:
+   Используется стандартная конфигурация из трех квадратов:
+   - один большой (N/2 + 1),
+   - два квадрата (N/2).
+
+Во всех случаях:
+- квадраты размещаются в binGrid,
+- добавляются в currentSolution,
+- увеличивается currentPartsCount.
+*/
 void prefillGridForKnownPatterns(GridState& state) {
     size_t N = state.gridSide;
     if (N % 2 == 0) {
@@ -376,6 +454,18 @@ void prefillGridForKnownPatterns(GridState& state) {
 }
 
 
+/*
+Функция принимает на вход ссылку на размер сетки N.
+Пытается сократить размер сетки до простого делителя.
+
+Если находится простой делитель p:
+- вычисляется scale = N / p,
+- N заменяется на p,
+- возвращается scale.
+
+Если делитель не найден,
+возвращается 1 (масштабирование не требуется).
+*/
 size_t reduceToPrimeBase(size_t& N) {
     for (size_t p = 2; p * p <= N; ++p) {
         if (N % p == 0 && isPrime(p)) {
@@ -389,30 +479,75 @@ size_t reduceToPrimeBase(size_t& N) {
 
 
 #if !STEPIK
-    bool individualizationFunction(GridState& state) {
-        int numberOfSquares = 0;
-        std::cin >> numberOfSquares;
-        Position leftUpCoordOfSquare;
-        long long currentSuareSide;
-        for (int i = 0; i < numberOfSquares; ++i) {
-            std::cin >> leftUpCoordOfSquare.x >> leftUpCoordOfSquare.y >> currentSuareSide;
-            if (currentSuareSide < 1 || currentSuareSide > (long long)state.gridSide) {
-                return false;
-            }
-            Position currentPosition = {leftUpCoordOfSquare.x - 1, leftUpCoordOfSquare.y - 1};
-            place(state, getLineMask(currentSuareSide, currentPosition.x), currentSuareSide, currentPosition);
-            Square currentSquare = {{leftUpCoordOfSquare.x, leftUpCoordOfSquare.y}, (size_t)currentSuareSide};
-            state.currentSolution.push_back(currentSquare);
-            state.currentPartsCount++;
+/*
+Функция принимает на вход ссылку на структуру GridState state.
+Используется только при компиляции с флагом STEPIK=0.
+
+Позволяет задать начальное состояние сетки:
+1) Считывается количество квадратов numberOfSquares.
+2) Для каждого квадрата считываются:
+   - координаты левого верхнего угла (x, y) в 1-индексации,
+   - сторона квадрата.
+3) Проверяется:
+   - корректность координат (>= 1),
+   - корректность стороны квадрата,
+   - размещение квадрата внутри сетки,
+   - отсутствие пересечения с уже размещёнными квадратами.
+4) Координаты переводятся во внутреннюю 0-индексацию.
+5) Квадрат размещается в битовой сетке с помощью place().
+6) Информация о квадрате сохраняется в currentSolution.
+7) Увеличивается счётчик currentPartsCount.
+
+Возвращает:
+- true — если ввод корректен,
+- false — если обнаружена ошибка входных данных.
+*/
+bool individualizationFunction(GridState& state) {
+    int numberOfSquares = 0;
+    std::cin >> numberOfSquares;
+
+    Position leftUpCoord;
+    long long currentSquareSide;
+
+    for (int i = 0; i < numberOfSquares; ++i) {
+        std::cin >> leftUpCoord.x >> leftUpCoord.y >> currentSquareSide;
+        if (leftUpCoord.x < 1 || leftUpCoord.y < 1) {
+            return false;
         }
-        if (!numberOfSquares) {
-            prefillGridForKnownPatterns(state);
+        if (currentSquareSide < 1 || currentSquareSide > (long long)state.gridSide) {
+            return false;
         }
-        return true;
+        size_t xCoord = leftUpCoord.x - 1;
+        size_t yCoord = leftUpCoord.y - 1;
+        if (!fitsInsideGrid(state.gridSide, (size_t)currentSquareSide, {xCoord, yCoord})) {
+            return false;
+        }
+        if (!canPlace(state, (size_t)currentSquareSide, {xCoord, yCoord})) {
+            return false;
+        }
+        uint64_t lineMask = getLineMask((size_t)currentSquareSide, xCoord);
+        place(state, lineMask, (size_t)currentSquareSide, yCoord);
+        Square currentSquare = {{xCoord + 1, yCoord + 1}, (size_t)currentSquareSide};
+        state.currentSolution.push_back(currentSquare);
+        state.currentPartsCount++;
     }
+    return true;
+}
 #endif
 
 
+/*
+Функция принимает на вход ссылку на структуру GridState state
+и коэффициент масштабирования scale.
+
+Выводит:
+1) минимальное количество квадратов,
+2) координаты и стороны каждого квадрата.
+
+Если применялось масштабирование (scale > 1),
+то координаты и стороны квадратов домножаются на scale,
+при этом координата 1 остается неизменной.
+*/
 void printStepikAnswer(GridState& state, size_t scale) {
     std::cout << state.bestPartsCount << "\n";
     for (const auto& sq : state.bestSolution) {
@@ -427,6 +562,7 @@ void printStepikAnswer(GridState& state, size_t scale) {
         std::cout << x << " " << y << " " << s << "\n";
     }
 }
+
 
 /*
 Функция принимает на вход ссылку на структуру GridState state, ссылку на размер
@@ -453,6 +589,22 @@ void getOptimisation(GridState& state, size_t& N, size_t& scale) {
 }
 
 
+/*
+Функция является основной управляющей функцией программы.
+
+Алгоритм работы:
+1) Считывает размер исходного квадрата.
+2) Проверяет корректность входных данных (2 <= N <= 63).
+3) Создает пустую сетку.
+4) При необходимости выполняет индивидуализацию.
+5) Применяет оптимизации (масштабирование и предзаполнение).
+6) Запускает рекурсивный поиск минимального разбиения.
+7) Выводит ответ.
+8) При COMPLEXITY_ANALYSIS=1 выводит статистику.
+9) Освобождает динамически выделенную память.
+
+Возвращает EXIT_SUCCESS или EXIT_FAILURE.
+*/
 int findTheMinimumPartition() {
     long long squareSide;
     std::cin >> squareSide;
