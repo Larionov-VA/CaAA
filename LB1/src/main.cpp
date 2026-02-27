@@ -298,9 +298,6 @@ void findMinimalNumberOfPartsRecursive(GridState& state) {
     #if COMPLEXITY_ANALYSIS
         ++state.calls;
     #endif
-    // #if PRINT_INFO
-    //     printGrid(state);
-    // #endif
     if (state.currentPartsCount == state.bestPartsCount) {
         #if PRINT_INFO
             out << "Текущее разбиение currentPartsCount = "
@@ -319,7 +316,6 @@ void findMinimalNumberOfPartsRecursive(GridState& state) {
         #endif
         state.bestPartsCount = state.currentPartsCount;
         state.bestSolution = state.currentSolution;
-
         return;
     }
     Position leftUpCoord = getFirstPosToNextSquare(state);
