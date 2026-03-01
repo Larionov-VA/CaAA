@@ -274,6 +274,30 @@ void printGrid(GridState& state) {
     }
     out << '\n';
 }
+
+void printFilledGrid(GridState& state, std::vector<Square> solution) {
+    out << "\n";
+    size_t N = state.gridSide;
+    std::vector<std::vector<size_t>> grid(N, std::vector<size_t>(N, 0));
+    for (size_t idx = 0; idx < solution.size(); ++idx) {
+        size_t squareNumber = idx + 1;
+        size_t x = solution[idx].squareLeftUpCoordinates.x - 1;
+        size_t y = solution[idx].squareLeftUpCoordinates.y - 1;
+        size_t side = solution[idx].squareSide;
+        for (size_t dy = 0; dy < side; ++dy) {
+            for (size_t dx = 0; dx < side; ++dx) {
+                grid[y + dy][x + dx] = squareNumber;
+            }
+        }
+    }
+    for (size_t i = 0; i < N; ++i) {
+        for (size_t j = 0; j < N; ++j) {
+            out << grid[i][j] << " ";
+        }
+        out << "\n";
+    }
+    out << "\n";
+}
 #endif
 
 
@@ -304,6 +328,7 @@ void findMinimalNumberOfPartsRecursive(GridState& state) {
                 << state.currentPartsCount
                 << " квадратов,\nчто равно лучшему разбиению bestPartsCount = "
                 << state.bestPartsCount << ".\nОбрезаем эту ветвь рекурсии.\n";
+            printFilledGrid(state, state.currentSolution);
         #endif
         return;
     }
@@ -313,20 +338,31 @@ void findMinimalNumberOfPartsRecursive(GridState& state) {
                 << (state.bestPartsCount == SIZE_MAX ? "-" : std::to_string(state.bestPartsCount))
                 << "\nНовое лучшее разбиение: "
                 << state.currentPartsCount << "\n";
+            printFilledGrid(state, state.currentSolution);
         #endif
-        state.bestPartsCount = state.currentPartsCount;
         state.bestSolution = state.currentSolution;
+        state.bestPartsCount = state.currentPartsCount;
         return;
     }
     Position leftUpCoord = getFirstPosToNextSquare(state);
     size_t maxSide = getMaxSquareAtPosition(state, leftUpCoord);
     for (size_t side = maxSide; side > 0; --side) {
         uint64_t currentLineMask = getLineMask(side, leftUpCoord.x);
+        #if PRINT_INFO
+            out << "Квадрат со стороной " << side
+                << " поставлен в координаты x = " << leftUpCoord.x
+                << " y = " << leftUpCoord.y << "\n";
+        #endif
         place(state, currentLineMask, side, leftUpCoord.y);
         Square currentSquare = {{leftUpCoord.x + 1, leftUpCoord.y + 1}, side};
         state.currentSolution.push_back(currentSquare);
         ++state.currentPartsCount;
         findMinimalNumberOfPartsRecursive(state);
+        #if PRINT_INFO
+            out << "Квадрат со стороной " << side
+                << " удален по координатам x = " << leftUpCoord.x
+                << " y = " << leftUpCoord.y << "\n";
+        #endif
         remove(state, currentLineMask, side, leftUpCoord.y);
         state.currentSolution.pop_back();
         --state.currentPartsCount;
@@ -412,6 +448,11 @@ bool isPrime(size_t N) {
 void prefillGridForKnownPatterns(GridState& state) {
     size_t N = state.gridSide;
     if (N % 2 == 0) {
+        #if PRINT_INFO
+            out << "Сторона квадрата " << N << " делится на два.\n"
+                << "Лучшее разбиение 4."
+                << " Рекурсия не требуется, задача решена.";
+        #endif
         size_t half = N / 2;
         size_t coords[2] = {0, half};
         for (size_t y0 : coords) {
@@ -423,6 +464,11 @@ void prefillGridForKnownPatterns(GridState& state) {
         }
     }
     else if (N % 3 == 0) {
+        #if PRINT_INFO
+            out << "Сторона квадрата " << N << " делится на три.\n"
+                << "Лучшее разбиение 6."
+                << " Рекурсия не требуется, задача решена.";
+        #endif
         size_t k = N / 3;
         size_t k2 = 2 * k;
         size_t X[6] = {0, k2, k2, 0, k, k2};
@@ -435,6 +481,12 @@ void prefillGridForKnownPatterns(GridState& state) {
         }
     }
     else if (isPrime(N)) {
+        #if PRINT_INFO
+            out << "Сторона квадрата " << N << " -- простое число.\n"
+                << "Можно использовать оптимизацию, в лучшем результате всегда"
+                << " будет 3 квадрата: \nодин со стороной N / 2 + 1 в координатах 0,0 "
+                << "\nи два со сторонами N / 2 в координатах (N / 2 + 1,0) и (0, N / 2 + 1)\n";
+        #endif
         size_t s1 = N / 2 + 1;
         size_t s2 = N / 2;
         place(state, getLineMask(s1, 0), s1, 0);
@@ -577,7 +629,14 @@ void prefillGridForKnownPatterns(GridState& state) для предзаполне
 void getOptimisation(GridState& state, size_t& N, size_t& scale) {
     if (state.currentPartsCount == 0) {
         scale = reduceToPrimeBase(N);
+        #if PRINT_INFO
+            out << "Запущена функция getOptimisation().\n";
+        #endif
         if (scale > 1) {
+            #if PRINT_INFO
+                out << "Удалось сократить N = " << N*scale << " до простого числа "
+                    << N << ".\n";
+            #endif
             state = getEmptyGridState(N);
         }
         prefillGridForKnownPatterns(state);
@@ -624,7 +683,10 @@ int findTheMinimumPartition() {
     getOptimisation(state, N, scale);
     findMinimalNumberOfPartsRecursive(state);
     printStepikAnswer(state, scale);
-
+    #if PRINT_INFO
+        out << "\nИтоговое разбиение:\n";
+        printFilledGrid(state, state.bestSolution);
+    #endif
     #if COMPLEXITY_ANALYSIS
         clock_t end = clock();
         double seconds = (double)(end - start) / CLOCKS_PER_SEC;
