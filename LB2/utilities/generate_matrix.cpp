@@ -5,7 +5,7 @@
 #include <fstream>
 
 #ifndef OUTPUT_FILENAME
-    #define OUTPUT_FILENAME "./utilities/matrices/example.txt"
+    #define OUTPUT_FILENAME "./files/matrices/example.txt"
 #endif
 #ifndef MAX_NUMBER_IN_MATRIX
     #define MAX_NUMBER_IN_MATRIX 100

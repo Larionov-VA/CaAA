@@ -1,10 +1,14 @@
 #include <iostream>
 #include <vector>
+#include <fstream>
+#include <string>
 
+#define GRAPH_FILENAME "./files/graph.dot"
+#define MST_FILENAME "./files/MST.dot"
 
 using matrix = std::vector<std::vector<int>>;
 
-matrix getMatrix() {
+matrix getMatrixFromFile() {
     int squareMatrixSide;
     std::cin >> squareMatrixSide;
     matrix M(squareMatrixSide, std::vector<int>(squareMatrixSide));
@@ -14,6 +18,24 @@ matrix getMatrix() {
         }
     }
     return M;
+}
+
+void matrixToDot(const matrix& M, const std::string& filename) {
+    std::ofstream dotFile(filename);
+    if (!dotFile.is_open()) {
+        return;
+    }
+    dotFile << "graph G {\n";
+    dotFile << "    node [shape=circle];\n\n";
+    for (size_t i = 0; i < M.size(); ++i) {
+        for (size_t j = i + 1; j < M.size(); ++j) {
+            if(M[i][j]) {
+                dotFile << "    " << i << " -- " << j
+                        << " [label=\"" << M[i][j] << "\"];\n";
+            }
+        }
+    }
+    dotFile << "}\n";
 }
 
 void printMatrix(const matrix& M) {
@@ -26,7 +48,10 @@ void printMatrix(const matrix& M) {
 }
 
 int main() {
-    matrix M = getMatrix();
+    matrix M = getMatrixFromFile();
     printMatrix(M);
+    matrixToDot(M, GRAPH_FILENAME);
+
+    matrixToDot(M, MST_FILENAME);
     return EXIT_SUCCESS;
 }
