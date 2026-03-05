@@ -6,6 +6,10 @@
 #define GRAPH_FILENAME "./files/graph.dot"
 #define MST_FILENAME "./files/MST.dot"
 
+#ifndef MAXIMUM_VERTEX
+    #define MAXIMUM_VERTEX 5
+#endif
+
 using matrix = std::vector<std::vector<int>>;
 
 matrix getMatrixFromFile() {
@@ -45,6 +49,11 @@ void printMatrix(const matrix& M) {
         }
         std::cout << '\n';
     }
+}
+
+bool findMST(matrix& M) {
+
+    return true;
 }
 
 int main() {
