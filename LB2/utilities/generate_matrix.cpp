@@ -8,7 +8,7 @@
     #define OUTPUT_FILENAME "./files/matrices/example.txt"
 #endif
 #ifndef MAX_NUMBER_IN_MATRIX
-    #define MAX_NUMBER_IN_MATRIX 3
+    #define MAX_NUMBER_IN_MATRIX 100
 #endif
 #ifndef MATRIX_SIZE
     #define MATRIX_SIZE 11

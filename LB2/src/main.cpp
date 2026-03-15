@@ -157,32 +157,38 @@ edgesStack getEdgesStack(const Matrix& M) {
     return edges;
 }
 
-int kruskalLowerBound(const edgesStack& edges, DSU dsu, int n) {
+int kruskalLowerBound(const edgesStack& edges, DSU dsu, int n, bool digitLimit = false) {
     int weight = 0;
     int cnt = 0;
-
-    for (int i = 0; i < n; ++i)
-        if (dsu.find(i) == i)
+    std::vector<int> rank(edges.size(), 0);
+    for (int i = 0; i < n; ++i) {
+        if (dsu.find(i) == i) {
             cnt++;
-
+        }
+    }
     cnt = n - cnt;
-
     for (const auto& e : edges) {
         int u = e.vertexes.first;
         int v = e.vertexes.second;
-
+        if (digitLimit) {
+            if (rank[u] >= MAX_VERTEX_DEG || rank[v] >= MAX_VERTEX_DEG) {
+                continue;
+            }
+        }
         if (dsu.unite(u, v)) {
+            if (digitLimit) {
+                rank[u]++; rank[v]++;
+            }
             weight += e.weight;
             cnt++;
-
-            if (cnt == n - 1)
+            if (cnt == n - 1) {
                 return weight;
+            }
         }
     }
-
-    if (cnt != n - 1)
+    if (cnt != n - 1) {
         return std::numeric_limits<int>::max();
-
+    }
     return weight;
 }
 
@@ -197,6 +203,15 @@ void findMSTRecursive(
     edgesStack& bestEdges,
     int n
 ) {
+    #if SHOW_INFO
+    std::string strBestWeight = \
+    bestWeight == std::numeric_limits<int>::max() ? "inf" : std::to_string(bestWeight);
+    infoToLogFile(
+        std::string("Вызвана рекурсивная функция findMSTRecursive\n") +
+        "Лучшее решение: " + strBestWeight +
+        "\nТекущее решение: " + std::to_string(currentWeight)
+    );
+    #endif
     if (currentEdges.size() == n - 1) {
         #if SHOW_INFO
         infoToLogFile("Текущее решение содержит " +
@@ -225,7 +240,7 @@ void findMSTRecursive(
             infoToLogFile("Нет, currentWeight = " +
                 std::to_string(currentWeight) +
                 ", а bestWeight = " +
-                strBestWeight +
+                std::to_string(bestWeight) +
                 ". Оставляем все как есть."
             );
         }
@@ -234,10 +249,10 @@ void findMSTRecursive(
     }
     if (index >= edges.size()) {
         #if SHOW_INFO
-            infoToLogFile(
-                "Обращение к несуществующему ребру, \
-                обрезаю текущую ветвь рекурсии"
-            );
+        infoToLogFile(
+            "Обращение к несуществующему ребру, \
+            обрезаю текущую ветвь рекурсии"
+        );
         #endif
         return;
     }
@@ -245,15 +260,28 @@ void findMSTRecursive(
     int bound = kruskalLowerBound(remaining, dsu, n);
     if (bound == std::numeric_limits<int>::max()) {
         #if SHOW_INFO
-            infoToLogFile(
-                "Оценка МОД на оставшихся вершинах методом Крускала показала, \
-                что построить МОД с текущими вершинами невозможно, \
-                обрезую эту ветвь рекурсии."
-            );
+        infoToLogFile(
+            std::string("Оценка МОД на оставшихся вершинах методом Крускала показала, \n") +
+            "что построить МОД с текущими вершинами невозможно, \n" +
+            "обрезую эту ветвь рекурсии."
+        );
         #endif
         return;
     }
     if (currentWeight + bound >= bestWeight) {
+        #if SHOW_INFO
+        infoToLogFile(
+            "currentWeight = " +
+            std::to_string(currentWeight) +
+            "\tbound = " +
+            std::to_string(bound) +
+            "\tbestWeight = " +
+            std::to_string(bestWeight) +
+            "\n" + std::to_string(currentWeight) + " + " + std::to_string(bound) + " >= " + std::to_string(bestWeight) +
+            "\nТекущее решение + нижняя оценка МОД на оставшихся вершинах больше или равна лучшему решению \n" +
+            "дальше эту ветвь продолжать не имеет смысла, обрезаю ее."
+        );
+        #endif
         return;
     }
     auto& e = edges[index];
@@ -265,6 +293,17 @@ void findMSTRecursive(
             degree[u]++;
             degree[v]++;
             currentEdges.push_back(e);
+            #if SHOW_INFO
+            infoToLogFile(
+                std::string("Добавляем ребро ") +
+                ALPHABET[u] +
+                " -- " +
+                ALPHABET[v] +
+                + " с весом " +
+                std::to_string(e.weight) +
+                " в текущее решение"
+            );
+            #endif
             findMSTRecursive(
                 edges, index + 1,
                 degree, dsuCopy,
@@ -273,11 +312,52 @@ void findMSTRecursive(
                 currentEdges, bestEdges,
                 n
             );
+            #if SHOW_INFO
+            infoToLogFile(
+                std::string("Удаляем ребро ") +
+                ALPHABET[u] +
+                " -- " +
+                ALPHABET[v] +
+                + " с весом " +
+                std::to_string(e.weight) +
+                " из текущего решения"
+            );
+            #endif
             currentEdges.pop_back();
             degree[u]--;
             degree[v]--;
         }
+        #if SHOW_INFO
+        else {
+            infoToLogFile(
+                std::string("Ребро ") +
+                ALPHABET[u] +
+                " -- " +
+                ALPHABET[v] +
+                + " образует цикл, что недопустимо." +
+                "\nПерехожу к рассмотрению следующего ребра."
+            );
+        }
+        #endif
     }
+    #if SHOW_INFO
+    else {
+        infoToLogFile(
+            std::string("Ребро ") +
+            ALPHABET[u] +
+            " -- " +
+            ALPHABET[v] +
+            + " нарушает правило ограничения на степень вершины." +
+            "\nСтепень вершины " +
+            ALPHABET[u] + ": " +
+            std::to_string(degree[u]) +
+            "\nСтепень вершины " +
+            ALPHABET[v] + ": " +
+            std::to_string(degree[v]) +
+            "\nПерехожу к рассмотрению следующего ребра."
+        );
+    }
+    #endif
     findMSTRecursive(
         edges, index + 1,
         degree, dsu,
@@ -286,6 +366,20 @@ void findMSTRecursive(
         currentEdges, bestEdges,
         n
     );
+    #if SHOW_INFO
+    strBestWeight = \
+    bestWeight == std::numeric_limits<int>::max() ? "inf" : std::to_string(bestWeight);
+    std::string strDSU;
+    for (auto p : dsu.parent) {
+        strDSU += std::to_string(p);
+        strDSU += " ";
+    }
+    infoToLogFile(
+        std::string("Рассмотрены все ветви рекурсии. Функция нашла МОД с весом: ") +
+        strBestWeight + "\n" +
+        strDSU
+    );
+    #endif
 }
 
 int findMSTBranchAndBound() {
@@ -307,6 +401,7 @@ int findMSTBranchAndBound() {
     int n = M.size();
     std::vector<int> degree(n, 0);
     DSU dsu(n);
+    std::cout << kruskalLowerBound(edges, dsu, n, true) << '\n';
     int bestWeight = std::numeric_limits<int>::max();
     edgesStack currentEdges, bestEdges;
     findMSTRecursive(
