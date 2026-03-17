@@ -4,7 +4,7 @@
 #include <string>
 #include <functional>
 #include <algorithm>
-
+#include <limits>
 #define GRAPH_FILENAME "./files/graph.dot"
 #define MST_FILENAME "./files/MST.dot"
 
@@ -19,6 +19,15 @@ struct edge {
 
 using edgesStack = std::vector<edge>;
 using matrix = std::vector<std::vector<int>>;
+
+struct partialSolution {
+    edgesStack sortedAvailableEdges;
+    edgesStack includedEdges;
+    int vertexNumber;
+    int currentResult = 0;
+    int bestResult = std::numeric_limits<int>::max();
+};
+
 
 matrix getMatrixFromFile() {
     int squareMatrixSide;
@@ -111,8 +120,46 @@ bool isEdgesLooped(edgesStack& edges, int numVertices) {
     return false;
 }
 
-void kruskalAlgorithm() {
+int kruskalAlgorithm(const edgesStack& edges, int numVertices, bool degLimit) {
+    edgesStack result;
+    std::vector<int> degree(numVertices, 0);
+    for (const auto& e : edges) {
+        int u = e.vertexes.first;
+        int v = e.vertexes.second;
+        if (degLimit) {
+            if (degree[u] >= MAX_VERTEX_DEG || degree[v] >= MAX_VERTEX_DEG) {
+                continue;
+            }
+        }
+        result.push_back(e);
+        if (!isEdgesLooped(result, numVertices)) {
+            if (degLimit) {
+                degree[u]++;
+                degree[v]++;
+            }
+        } else {
+            result.pop_back();
+        }
+        if (result.size() == numVertices - 1) break;
+    }
+    if (result.size() != numVertices - 1) return 0;
+    int totalWeight = 0;
+    for (const auto& e : result) {
+        totalWeight += e.weight;
+    }
+    return totalWeight;
+}
 
+void findMSTRecursive(partialSolution& recursiveInfo) {
+    int MSTcostInAvailableEdges = kruskalAlgorithm(
+        recursiveInfo.sortedAvailableEdges,
+        recursiveInfo.vertexNumber,
+        false);
+    int currentMSTcostMinimum = recursiveInfo.currentResult + MSTcostInAvailableEdges;
+    if (currentMSTcostMinimum >= recursiveInfo.bestResult) {
+        return;
+    }
+    //
 }
 
 int findMSTBranchAndBound(int maxVertexDeg) {
@@ -126,11 +173,11 @@ int findMSTBranchAndBound(int maxVertexDeg) {
     // std::cout << '\n';
     // std::cout << isMatrixSimmetric(M);
     // std::cout << '\n';
-    std::cout << isEdgesLooped(edges, M.size());
-    std::cout << '\n';
-    for (auto& edge : getEdgesStack(M)) {
-        std::cout << edge.vertexes.first << ' ' << edge.vertexes.second << ' ' << edge.weight << '\n';
-    }
+    // std::cout << isEdgesLooped(edges, M.size());
+    // std::cout << '\n';
+    // for (auto& edge : getEdgesStack(M)) {
+    //     std::cout << edge.vertexes.first << ' ' << edge.vertexes.second << ' ' << edge.weight << '\n';
+    // }
     // printMatrix(M);
     // matrixToDot(M, GRAPH_FILENAME);
     // matrixToDot(M, MST_FILENAME);
