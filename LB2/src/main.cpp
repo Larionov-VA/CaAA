@@ -7,14 +7,17 @@
 #include <limits>
 
 #define ALPHABET "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
 #define GRAPH_FILENAME "./files/graph.dot"
-#define MST_FILENAME "./files/MST.dot"
-
 #ifndef MAX_VERTEX_DEG
     #define MAX_VERTEX_DEG 5
 #endif
-
+#ifndef SHOW_INFO
+    #define SHOW_INFO 0
+#endif
+#if SHOW_INFO
+    #define LOG_FILENAME "./files/log.txt"
+    std::ofstream logFile(LOG_FILENAME);
+#endif
 struct edge {
     std::pair<int, int> vertexes;
     int weight;
@@ -66,24 +69,23 @@ matrix getMatrixFromFile() {
     return M;
 }
 
-// void matrixToDot(const matrix& M, const std::string& filename) {
-//     std::ofstream dotFile(filename);
-//     if (!dotFile.is_open()) {
-//         return;
-//     }
-//     dotFile << "graph M {\n";
-//     dotFile << "    node [shape=circle];\n\n";
-//     for (size_t i = 0; i < M.size(); ++i) {
-//         for (size_t j = i + 1; j < M.size(); ++j) {
-//             if (M[i][j]) {
-//                 dotFile << "    " << ALPHABET[i] << " -- " << ALPHABET[j]
-//                         << " [label=\"" << M[i][j]
-//                         << "\" color=\"red\" penwidth=\"2\"];\n";
-//             }
-//         }
-//     }
-//     // dotFile << "}\n";
-// }
+#if SHOW_INFO
+void printMatrix(matrix& M) {
+    size_t squareMatrixSide = M.size();
+    for (size_t i = 0; i < squareMatrixSide; ++i) {
+        logFile << '\t' << ALPHABET[i];
+    }
+    logFile << "\n\n";
+    for (size_t i = 0; i < squareMatrixSide; ++i) {
+        logFile << ALPHABET[i] << '\t';
+        for (size_t j = 0; j < squareMatrixSide; ++j) {
+            logFile << M[i][j] << '\t';
+        }
+        logFile << "\n\n";
+    }
+    logFile << '\n';
+}
+#endif
 
 void edgesToDot(
     const edgesStack& edges,
@@ -218,6 +220,9 @@ void findMSTRecursive(
 
 int findMSTBranchAndBound(int maxVertexDeg) {
     matrix M = getMatrixFromFile();
+#if SHOW_INFO
+    printMatrix(M);
+#endif
     if (!isMatrixSimmetric(M)) {
         return EXIT_FAILURE;
     }
@@ -240,14 +245,21 @@ int findMSTBranchAndBound(int maxVertexDeg) {
         bestEdges,
         n
     );
-    std::cout << "BEST MST WEIGHT = " << bestWeight << '\n';
-    std::cout << "Edges:\n";
-    for (auto& e : bestEdges) {
-        std::cout << e.vertexes.first << " - "
-                  << e.vertexes.second
-                  << " (" << e.weight << ")\n";
+    if (bestWeight == std::numeric_limits<int>::max()) {
+        std::cout << "no path\n";
+        return EXIT_FAILURE;
     }
-    edgesToDot(edges, bestEdges, GRAPH_FILENAME);
+    else {
+        std::cout << bestWeight << '\n';
+        for (auto& e : bestEdges) {
+            std::cout << ALPHABET[e.vertexes.first] << " -- "
+                      << ALPHABET[e.vertexes.second] << "\t["
+                      << e.weight
+                      << "]"
+                      << "\n";
+        }
+        edgesToDot(edges, bestEdges, GRAPH_FILENAME);
+    }
     return EXIT_SUCCESS;
 }
 
