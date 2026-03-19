@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <limits>
 
+#define ALPHABET "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 #define GRAPH_FILENAME "./files/graph.dot"
 #define MST_FILENAME "./files/MST.dot"
 
@@ -16,6 +18,10 @@
 struct edge {
     std::pair<int, int> vertexes;
     int weight;
+    bool operator == (const edge& counter) const
+    {
+        return vertexes == counter.vertexes && weight == counter.weight;
+    }
 };
 
 using edgesStack = std::vector<edge>;
@@ -34,10 +40,16 @@ struct DSU {
     bool unite(int a, int b) {
         a = find(a);
         b = find(b);
-        if (a == b) return false;
-        if (rank[a] < rank[b]) std::swap(a, b);
+        if (a == b) {
+            return false;
+        }
+        if (rank[a] < rank[b]) {
+            std::swap(a, b);
+        }
         parent[b] = a;
-        if (rank[a] == rank[b]) rank[a]++;
+        if (rank[a] == rank[b]) {
+            rank[a]++;
+        }
         return true;
     }
 };
@@ -54,26 +66,26 @@ matrix getMatrixFromFile() {
     return M;
 }
 
-void matrixToDot(const matrix& M, const std::string& filename) {
-    std::ofstream dotFile(filename);
-    if (!dotFile.is_open()) {
-        return;
-    }
-    dotFile << "graph G {\n";
-    dotFile << "    node [shape=circle];\n\n";
-    for (size_t i = 0; i < M.size(); ++i) {
-        for (size_t j = i + 1; j < M.size(); ++j) {
-            if (M[i][j]) {
-                dotFile << "    " << i << " -- " << j
-                        << " [label=\"" << M[i][j]
-                        << "\" color=\"green\" penwidth=\"2\"];\n";
-            }
-        }
-    }
-    dotFile << "}\n";
-}
+// void matrixToDot(const matrix& M, const std::string& filename) {
+//     std::ofstream dotFile(filename);
+//     if (!dotFile.is_open()) {
+//         return;
+//     }
+//     dotFile << "graph M {\n";
+//     dotFile << "    node [shape=circle];\n\n";
+//     for (size_t i = 0; i < M.size(); ++i) {
+//         for (size_t j = i + 1; j < M.size(); ++j) {
+//             if (M[i][j]) {
+//                 dotFile << "    " << ALPHABET[i] << " -- " << ALPHABET[j]
+//                         << " [label=\"" << M[i][j]
+//                         << "\" color=\"red\" penwidth=\"2\"];\n";
+//             }
+//         }
+//     }
+//     // dotFile << "}\n";
+// }
 
-void edgesToDot(const edgesStack& edges, const std::string& filename) {
+void edgesToDot(const edgesStack& edges, const edgesStack& MSTedges, const std::string& filename) {
     std::ofstream dotFile(filename);
     if (!dotFile.is_open()) {
         return;
@@ -83,10 +95,15 @@ void edgesToDot(const edgesStack& edges, const std::string& filename) {
     dotFile << "\n";
     for (const auto& e : edges) {
         dotFile << "    "
-                << e.vertexes.first << " -- "
-                << e.vertexes.second
-                << " [label=\"" << e.weight
-                << "\" color=\"red\" penwidth=\"3\"];\n";
+                << ALPHABET[e.vertexes.first] << " -- "
+                << ALPHABET[e.vertexes.second]
+                << " [label=\"" << e.weight;
+        if (std::find(MSTedges.begin(), MSTedges.end(), e) == MSTedges.end()) {
+            dotFile << "\" color=\"red\" penwidth=\"1\"];\n";
+        }
+        else {
+            dotFile << "\" color=\"green\" penwidth=\"2\"];\n";
+        }
     }
     dotFile << "}\n";
 }
@@ -114,23 +131,24 @@ edgesStack getEdgesStack(matrix& M) {
     return edges;
 }
 
-int kruskalLowerBound(const edgesStack& edges, int n) {
+int kruskalLowerBound(const edgesStack& edges, int n, bool degLimit) {
     DSU dsu(n);
     int weight = 0;
     int cnt = 0;
-
     for (const auto& e : edges) {
         int u = e.vertexes.first;
         int v = e.vertexes.second;
-
         if (dsu.unite(u, v)) {
             weight += e.weight;
             cnt++;
-            if (cnt == n - 1) break;
+            if (cnt == n - 1) {
+                break;
+            }
         }
     }
-
-    if (cnt != n - 1) return std::numeric_limits<int>::max();
+    if (cnt != n - 1) {
+        return std::numeric_limits<int>::max();
+    }
     return weight;
 }
 
@@ -156,7 +174,7 @@ void findMSTRecursive(
         return;
     }
     edgesStack remaining(edges.begin() + index, edges.end());
-    int bound = kruskalLowerBound(remaining, n);
+    int bound = kruskalLowerBound(remaining, n, false);
     if (bound == std::numeric_limits<int>::max()) {
         return;
     }
@@ -197,7 +215,7 @@ void findMSTRecursive(
 
 int findMSTBranchAndBound(int maxVertexDeg) {
     matrix M = getMatrixFromFile();
-    matrixToDot(M, GRAPH_FILENAME);
+    // matrixToDot(M, GRAPH_FILENAME);
     if (!isMatrixSimmetric(M)) {
         return EXIT_FAILURE;
     }
@@ -227,7 +245,7 @@ int findMSTBranchAndBound(int maxVertexDeg) {
                   << e.vertexes.second
                   << " (" << e.weight << ")\n";
     }
-    edgesToDot(bestEdges, MST_FILENAME);
+    edgesToDot(edges, bestEdges, GRAPH_FILENAME);
     return EXIT_SUCCESS;
 }
 
