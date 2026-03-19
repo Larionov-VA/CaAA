@@ -85,7 +85,10 @@ matrix getMatrixFromFile() {
 //     // dotFile << "}\n";
 // }
 
-void edgesToDot(const edgesStack& edges, const edgesStack& MSTedges, const std::string& filename) {
+void edgesToDot(
+    const edgesStack& edges,
+    const edgesStack& MSTedges,
+    const std::string& filename) {
     std::ofstream dotFile(filename);
     if (!dotFile.is_open()) {
         return;
@@ -215,7 +218,6 @@ void findMSTRecursive(
 
 int findMSTBranchAndBound(int maxVertexDeg) {
     matrix M = getMatrixFromFile();
-    // matrixToDot(M, GRAPH_FILENAME);
     if (!isMatrixSimmetric(M)) {
         return EXIT_FAILURE;
     }

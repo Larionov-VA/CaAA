@@ -10,6 +10,9 @@
 #ifndef MAX_NUMBER_IN_MATRIX
     #define MAX_NUMBER_IN_MATRIX 100
 #endif
+#ifndef MATRIX_SIZE
+    #define MATRIX_SIZE 11
+#endif
 
 using matrix = std::vector<std::vector<int>>;
 
@@ -32,8 +35,8 @@ void saveMatrix(const matrix& M) {
 }
 
 int main() {
-    // для получения значений от 5 до 15 включениено
-    int squareMatrixSide = 5 + getRandomNumber(11);
+    // для получения значений от 5 до MATRIX_SIZE + 5 включениено
+    int squareMatrixSide = 5 + getRandomNumber(MATRIX_SIZE);
     matrix M(squareMatrixSide, std::vector<int>(squareMatrixSide));
     // цикл по строкам матрицы
     for (int i = 0; i < squareMatrixSide; ++i) {
