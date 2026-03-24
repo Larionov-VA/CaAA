@@ -1,12 +1,11 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
-#include <string>
-#include <functional>
 #include <algorithm>
+#include <string>
+#include <sstream>
 #include <limits>
 
-#define ALPHABET "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 #define GRAPH_FILENAME "./files/graph.dot"
 #ifndef MAX_VERTEX_DEG
     #define MAX_VERTEX_DEG 5
@@ -17,18 +16,22 @@
 #if SHOW_INFO
     #define LOG_FILENAME "./files/log.txt"
     std::ofstream logFile(LOG_FILENAME);
+    int logCounter = 0;
 #endif
-struct edge {
+
+constexpr std::string_view ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+struct Edge {
     std::pair<int, int> vertexes;
     int weight;
-    bool operator == (const edge& counter) const
+    bool operator == (const Edge& counter) const
     {
         return vertexes == counter.vertexes && weight == counter.weight;
     }
 };
 
-using edgesStack = std::vector<edge>;
-using matrix = std::vector<std::vector<int>>;
+using edgesStack = std::vector<Edge>;
+using Matrix = std::vector<std::vector<int>>;
 
 struct DSU {
     std::vector<int> parent, rank;
@@ -37,7 +40,9 @@ struct DSU {
             parent[i] = i;
     }
     int find(int v) {
-        if (v == parent[v]) return v;
+        if (v == parent[v]) {
+            return v;
+        }
         return parent[v] = find(parent[v]);
     }
     bool unite(int a, int b) {
@@ -57,10 +62,10 @@ struct DSU {
     }
 };
 
-matrix getMatrixFromFile() {
+Matrix getMatrixFromStream() {
     int n;
     std::cin >> n;
-    matrix M(n, std::vector<int>(n));
+    Matrix M(n, std::vector<int>(n));
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
             std::cin >> M[i][j];
@@ -70,27 +75,43 @@ matrix getMatrixFromFile() {
 }
 
 #if SHOW_INFO
-void printMatrix(matrix& M) {
+void infoToLogFile(const std::string info) {
+    if (logFile) {
+        logFile << logCounter++ << "\n";
+        std::stringstream ss(info);
+        std::string token;
+        while (std::getline(ss, token, '\n')) {
+            logFile << "\t" << token << std::endl;
+        }
+    }
+}
+
+std::string matrixToString(const Matrix& M) {
+    std::string strMatrix;
     size_t squareMatrixSide = M.size();
     for (size_t i = 0; i < squareMatrixSide; ++i) {
-        logFile << '\t' << ALPHABET[i];
+        strMatrix += "\t";
+        strMatrix += ALPHABET[i];
     }
-    logFile << "\n\n";
+    strMatrix += "\n\n";
     for (size_t i = 0; i < squareMatrixSide; ++i) {
-        logFile << ALPHABET[i] << '\t';
+        strMatrix += ALPHABET[i];
+        strMatrix += "\t";
         for (size_t j = 0; j < squareMatrixSide; ++j) {
-            logFile << M[i][j] << '\t';
+            strMatrix += std::to_string(M[i][j]);
+            strMatrix += "\t";
         }
-        logFile << "\n\n";
+        strMatrix += "\n\n";
     }
-    logFile << '\n';
+    return strMatrix;
 }
 #endif
 
 void edgesToDot(
     const edgesStack& edges,
     const edgesStack& MSTedges,
-    const std::string& filename) {
+    const std::string& filename
+) {
     std::ofstream dotFile(filename);
     if (!dotFile.is_open()) {
         return;
@@ -113,7 +134,7 @@ void edgesToDot(
     dotFile << "}\n";
 }
 
-bool isMatrixSimmetric(matrix& M) {
+bool isMatrixSymmetric(const Matrix& M) {
     for (size_t i = 0; i < M.size(); ++i) {
         for (size_t j = i + 1; j < M.size(); ++j) {
             if (M[i][j] != M[j][i]) {
@@ -124,7 +145,7 @@ bool isMatrixSimmetric(matrix& M) {
     return true;
 }
 
-edgesStack getEdgesStack(matrix& M) {
+edgesStack getEdgesStack(const Matrix& M) {
     edgesStack edges;
     for (size_t i = 0; i < M.size(); ++i) {
         for (size_t j = i + 1; j < M.size(); ++j) {
@@ -136,24 +157,32 @@ edgesStack getEdgesStack(matrix& M) {
     return edges;
 }
 
-int kruskalLowerBound(const edgesStack& edges, int n, bool degLimit) {
-    DSU dsu(n);
+int kruskalLowerBound(const edgesStack& edges, DSU dsu, int n) {
     int weight = 0;
     int cnt = 0;
+
+    for (int i = 0; i < n; ++i)
+        if (dsu.find(i) == i)
+            cnt++;
+
+    cnt = n - cnt;
+
     for (const auto& e : edges) {
         int u = e.vertexes.first;
         int v = e.vertexes.second;
+
         if (dsu.unite(u, v)) {
             weight += e.weight;
             cnt++;
-            if (cnt == n - 1) {
-                break;
-            }
+
+            if (cnt == n - 1)
+                return weight;
         }
     }
-    if (cnt != n - 1) {
+
+    if (cnt != n - 1)
         return std::numeric_limits<int>::max();
-    }
+
     return weight;
 }
 
@@ -169,18 +198,59 @@ void findMSTRecursive(
     int n
 ) {
     if (currentEdges.size() == n - 1) {
+        #if SHOW_INFO
+        infoToLogFile("Текущее решение содержит " +
+            std::to_string(n - 1) +
+            " рёбер, оно окончательно для графа из " +
+            std::to_string(n) +
+            " вершин.\nПроверим лучше ли оно предыдущего:"
+        );
+        #endif
         if (currentWeight < bestWeight) {
+            #if SHOW_INFO
+            std::string strBestWeight = \
+            bestWeight == std::numeric_limits<int>::max() ? "inf" : std::to_string(bestWeight);
+            infoToLogFile("Да, currentWeight = " +
+                std::to_string(currentWeight) +
+                ", а bestWeight = " +
+                strBestWeight +
+                ". Заменяем лучшее решение текущим."
+            );
+            #endif
             bestWeight = currentWeight;
             bestEdges = currentEdges;
         }
+        #if SHOW_INFO
+        else {
+            infoToLogFile("Нет, currentWeight = " +
+                std::to_string(currentWeight) +
+                ", а bestWeight = " +
+                strBestWeight +
+                ". Оставляем все как есть."
+            );
+        }
+        #endif
         return;
     }
     if (index >= edges.size()) {
+        #if SHOW_INFO
+            infoToLogFile(
+                "Обращение к несуществующему ребру, \
+                обрезаю текущую ветвь рекурсии"
+            );
+        #endif
         return;
     }
     edgesStack remaining(edges.begin() + index, edges.end());
-    int bound = kruskalLowerBound(remaining, n, false);
+    int bound = kruskalLowerBound(remaining, dsu, n);
     if (bound == std::numeric_limits<int>::max()) {
+        #if SHOW_INFO
+            infoToLogFile(
+                "Оценка МОД на оставшихся вершинах методом Крускала показала, \
+                что построить МОД с текущими вершинами невозможно, \
+                обрезую эту ветвь рекурсии."
+            );
+        #endif
         return;
     }
     if (currentWeight + bound >= bestWeight) {
@@ -218,17 +288,20 @@ void findMSTRecursive(
     );
 }
 
-int findMSTBranchAndBound(int maxVertexDeg) {
-    matrix M = getMatrixFromFile();
-#if SHOW_INFO
-    printMatrix(M);
-#endif
-    if (!isMatrixSimmetric(M)) {
+int findMSTBranchAndBound() {
+    Matrix M = getMatrixFromStream();
+    #if SHOW_INFO
+    infoToLogFile(matrixToString(M));
+    #endif
+    if (!isMatrixSymmetric(M)) {
+        #if SHOW_INFO
+        infoToLogFile("Матрица не симметрична, прерываю");
+        #endif
         return EXIT_FAILURE;
     }
     edgesStack edges = getEdgesStack(M);
     std::sort(edges.begin(), edges.end(),
-        [](const edge& a, const edge& b) {
+        [](const Edge& a, const Edge& b) {
             return a.weight < b.weight;
         });
     int n = M.size();
@@ -264,5 +337,5 @@ int findMSTBranchAndBound(int maxVertexDeg) {
 }
 
 int main() {
-    return findMSTBranchAndBound(MAX_VERTEX_DEG);
+    return findMSTBranchAndBound();
 }

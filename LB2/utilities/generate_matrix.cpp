@@ -8,13 +8,13 @@
     #define OUTPUT_FILENAME "./files/matrices/example.txt"
 #endif
 #ifndef MAX_NUMBER_IN_MATRIX
-    #define MAX_NUMBER_IN_MATRIX 100
+    #define MAX_NUMBER_IN_MATRIX 3
 #endif
 #ifndef MATRIX_SIZE
     #define MATRIX_SIZE 11
 #endif
 
-using matrix = std::vector<std::vector<int>>;
+using Matrix = std::vector<std::vector<int>>;
 
 int getRandomNumber(int mod) {
     static int counter = 0;
@@ -23,7 +23,7 @@ int getRandomNumber(int mod) {
     return engine() % mod;
 }
 
-void saveMatrix(const matrix& M) {
+void saveMatrix(const Matrix& M) {
     std::ofstream out(OUTPUT_FILENAME);
     out << M.size() << '\n';
     for (const auto& row : M) {
@@ -37,7 +37,7 @@ void saveMatrix(const matrix& M) {
 int main() {
     // для получения значений от 5 до MATRIX_SIZE + 5 включениено
     int squareMatrixSide = 5 + getRandomNumber(MATRIX_SIZE);
-    matrix M(squareMatrixSide, std::vector<int>(squareMatrixSide));
+    Matrix M(squareMatrixSide, std::vector<int>(squareMatrixSide));
     // цикл по строкам матрицы
     for (int i = 0; i < squareMatrixSide; ++i) {
         // цикл по содержимому строки
