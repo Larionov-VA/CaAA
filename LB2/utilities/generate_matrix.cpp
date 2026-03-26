@@ -14,7 +14,7 @@
     #define MATRIX_SIZE 11
 #endif
 
-using Matrix = std::vector<std::vector<int>>;
+using matrix = std::vector<std::vector<int>>;
 
 int getRandomNumber(int mod) {
     static int counter = 0;
@@ -23,7 +23,7 @@ int getRandomNumber(int mod) {
     return engine() % mod;
 }
 
-void saveMatrix(const Matrix& M) {
+void saveMatrix(const matrix& M) {
     std::ofstream out(OUTPUT_FILENAME);
     out << M.size() << '\n';
     for (const auto& row : M) {
@@ -37,7 +37,7 @@ void saveMatrix(const Matrix& M) {
 int main() {
     // для получения значений от 5 до MATRIX_SIZE + 5 включениено
     int squareMatrixSide = 5 + getRandomNumber(MATRIX_SIZE);
-    Matrix M(squareMatrixSide, std::vector<int>(squareMatrixSide));
+    matrix M(squareMatrixSide, std::vector<int>(squareMatrixSide));
     // цикл по строкам матрицы
     for (int i = 0; i < squareMatrixSide; ++i) {
         // цикл по содержимому строки
