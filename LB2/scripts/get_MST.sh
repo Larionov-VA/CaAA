@@ -3,13 +3,11 @@ mkdir -p ./build
 if [ $# -eq 0 ]; then
     g++ ./src/main.cpp -o ./build/main
 elif [ $# -eq 1 ]; then
-    g++ ./src/main.cpp -o ./build/main -DMAX_VERTEX_DEG=$1
+    g++ ./src/main.cpp -o ./build/main -D MAX_VERTEX_DEG=$1
 elif [ $# -eq 2 ]; then
-    if [ "$1" -eq 0 ]; then
-        g++ ./src/main.cpp -o ./build/main -DSHOW_INFO=$2
-    else
-        g++ ./src/main.cpp -o ./build/main -DMAX_VERTEX_DEG=$1 -DSHOW_INFO=$2
-    fi
+    g++ ./src/main.cpp -o ./build/main -D MAX_VERTEX_DEG=$1 -D SHOW_INFO=$2
+elif [ $# -eq 3 ]; then
+    g++ ./src/main.cpp -o ./build/main -D MAX_VERTEX_DEG=$1 -D SHOW_INFO=$2 -D START_WITH=$3
 fi
 ./build/main < ./files/matrices/example.txt
 dot -Tsvg ./files/graph.dot -o ./files/graph.svg

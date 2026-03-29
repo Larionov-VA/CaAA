@@ -11,7 +11,7 @@
 #define MAX_VERTEX_DEG 5
 #endif
 #ifndef SHOW_INFO
-    #define SHOW_INFO 0
+    #define SHOW_INFO 1 // 0
 #endif
 #if SHOW_INFO
     #define LOG_FILENAME "./files/log.txt"
@@ -19,75 +19,82 @@
     int logCounter = 0;
 #endif
 
-constexpr std::string_view ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+const std::string ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
 struct edge {
-    std::pair<int, int> vertexes;
+    std::pair<int, int> vertices;
     int weight;
-    bool operator == (const edge& counter) const
-    {
-        return vertexes == counter.vertexes && weight == counter.weight;
+    bool operator==(const edge& counter) const {
+        return vertices == counter.vertices && weight == counter.weight;
     }
-};
-
-struct recursiveInfoStruct {
-
 };
 
 using edgesStack = std::vector<edge>;
 using matrix = std::vector<std::vector<int>>;
 
+struct recursiveInfoStruct {
+    edgesStack& allEdges;
+    edgesStack& currentEdges;
+    edgesStack& bestEdges;
+    std::vector<int>& degreesOfVertices;
+    int currentWeight;
+    int& bestWeight;
+    int indexInEdgesStack;
+};
+
 #if SHOW_INFO
-    void infoToLogFile(const std::string info) {
-        if (logFile) {
-            logFile << logCounter++ << "\n";
-            std::stringstream ss(info);
-            std::string token;
-            while (std::getline(ss, token, '\n')) {
-                logFile << "\t" << token << std::endl;
-            }
+void infoToLogFile(const std::string& info) {
+    if (logFile) {
+        logFile << logCounter++ << "\n";
+        std::stringstream ss(info);
+        std::string token;
+        while (std::getline(ss, token, '\n')) {
+            logFile << "\t" << token << std::endl;
         }
     }
+}
 
-    std::string matrixToString(const matrix& M) {
-        std::string strMatrix;
-        size_t squareMatrixSide = M.size();
-        for (size_t i = 0; i < squareMatrixSide; ++i) {
+std::string matrixToString(const matrix& M) {
+    std::string strMatrix;
+    size_t squareMatrixSide = M.size();
+    for (size_t i = 0; i < squareMatrixSide; ++i) {
+        strMatrix += "\t";
+        strMatrix += ALPHABET[i];
+    }
+    strMatrix += "\n\n";
+    for (size_t i = 0; i < squareMatrixSide; ++i) {
+        strMatrix += ALPHABET[i];
+        strMatrix += "\t";
+        for (size_t j = 0; j < squareMatrixSide; ++j) {
+            strMatrix += std::to_string(M[i][j]);
             strMatrix += "\t";
-            strMatrix += ALPHABET[i];
         }
         strMatrix += "\n\n";
-        for (size_t i = 0; i < squareMatrixSide; ++i) {
-            strMatrix += ALPHABET[i];
-            strMatrix += "\t";
-            for (size_t j = 0; j < squareMatrixSide; ++j) {
-                strMatrix += std::to_string(M[i][j]);
-                strMatrix += "\t";
-            }
-            strMatrix += "\n\n";
-        }
-        return strMatrix;
     }
+    return strMatrix;
+}
 
-    std::string vertexesToStringEdge(const int& vertexU, const int& vertexV) {
-        return ALPHABET[vertexU] + " -- " + ALPHABET[vertexV];
-    }
+std::string verticesToStringEdge(const int vertexU, const int vertexV) {
+    std::stringstream ss;
+    ss << ALPHABET[vertexU] << " -- " << ALPHABET[vertexV];
+    return ss.str();
+}
 
-    std::string edgesToString(const edgesStack& edges) {
-        std::string strCurrentEdges;
-        for (const edge& edge : edges) {
-            int vertexU = edge.vertexes.first;
-            int vertexV = edge.vertexes.second;
-            strCurrentEdges += vertexesToStringEdge(vertexU, vertexV);
-            strCurrentEdges += "\n";
-        }
-        return strCurrentEdges;
+std::string edgesToString(const edgesStack& edges) {
+    std::string strCurrentEdges;
+    for (const edge& edge : edges) {
+        int vertexU = edge.vertices.first;
+        int vertexV = edge.vertices.second;
+        strCurrentEdges += verticesToStringEdge(vertexU, vertexV);
+        strCurrentEdges += "\n";
     }
+    return strCurrentEdges;
+}
 
-    std::string bestWeightString(const int& bestWeight) {
-        return bestWeight == std::numeric_limits<int>::max() ?
-        "inf" : std::to_string(bestWeight);
-    }
+std::string bestWeightString(const int& bestWeight) {
+    return bestWeight == std::numeric_limits<int>::max() ?
+    "inf" : std::to_string(bestWeight);
+}
 #endif
 
 struct DSU {
@@ -120,11 +127,11 @@ struct DSU {
 };
 
 matrix getMatrixFromStream() {
-    int vertexesCount;
-    std::cin >> vertexesCount;
-    matrix M(vertexesCount, std::vector<int>(vertexesCount));
-    for (int i = 0; i < vertexesCount; ++i) {
-        for (int j = 0; j < vertexesCount; ++j) {
+    int verticesCount;
+    std::cin >> verticesCount;
+    matrix M(verticesCount, std::vector<int>(verticesCount));
+    for (int i = 0; i < verticesCount; ++i) {
+        for (int j = 0; j < verticesCount; ++j) {
             std::cin >> M[i][j];
         }
     }
@@ -146,8 +153,8 @@ void edgesToDot(
     }
     std::string dotInfoString("graph G {\n\tnode [shape=circle];\n");
     for (const auto& currentEdge : edges) {
-        const int& vertexU = currentEdge.vertexes.first;
-        const int& vertexV = currentEdge.vertexes.second;
+        const int& vertexU = currentEdge.vertices.first;
+        const int& vertexV = currentEdge.vertices.second;
         dotInfoString += "\t";
         dotInfoString += ALPHABET[vertexU];
         dotInfoString += " -- ";
@@ -188,24 +195,32 @@ edgesStack getEdgesStack(const matrix& M) {
     return edges;
 }
 
+void sortEdgesStack(edgesStack& edges) {
+    auto comporator = [](const edge& a, const edge& b) {
+        return a.weight < b.weight;
+    };
+    std::sort(edges.begin(), edges.end(), comporator);
+}
+
 int kruskalLowerBound(
-    const edgesStack& edges,
+    edgesStack& edges,
     DSU dsu,
-    int vertexesCount,
+    int verticesCount,
     bool digitLimit = false
 ) {
+    sortEdgesStack(edges);
     int MSTweight = 0;
     int currentVertexNumber = 0;
     std::vector<int> rank(edges.size(), 0);
-    for (int i = 0; i < vertexesCount; ++i) {
+    for (int i = 0; i < verticesCount; ++i) {
         if (dsu.find(i) == i) {
             currentVertexNumber++;
         }
     }
-    currentVertexNumber = vertexesCount - currentVertexNumber;
+    currentVertexNumber = verticesCount - currentVertexNumber;
     for (const auto& currentEdge : edges) {
-        int vertexU = currentEdge.vertexes.first;
-        int vertexV = currentEdge.vertexes.second;
+        int vertexU = currentEdge.vertices.first;
+        int vertexV = currentEdge.vertices.second;
         if (digitLimit) {
             if (std::max(rank[vertexU], rank[vertexV]) >= MAX_VERTEX_DEG) {
                 continue;
@@ -217,12 +232,12 @@ int kruskalLowerBound(
             }
             MSTweight += currentEdge.weight;
             currentVertexNumber++;
-            if (currentVertexNumber == vertexesCount - 1) {
+            if (currentVertexNumber == verticesCount - 1) {
                 return MSTweight;
             }
         }
     }
-    if (currentVertexNumber != vertexesCount - 1) {
+    if (currentVertexNumber != verticesCount - 1) {
         return std::numeric_limits<int>::max();
     }
     return MSTweight;
@@ -237,177 +252,224 @@ void findMSTRecursive(
     int& bestWeight,
     edgesStack& currentEdges,
     edgesStack& bestEdges,
-    int vertexesCount
+    int verticesCount
 ) {
     #if SHOW_INFO
-    infoToLogFile(
-        std::string("Вызвана рекурсивная функция findMSTRecursive\n") +
-        "Вес лучшего решения: " + bestWeightString(bestWeight) +
-        "\nВес текущего решения: " + std::to_string(currentWeight) +
-        "\nРебра в текущем решении:\n" + edgesToString(currentEdges)
-    );
+    std::string info("Вызвана рекурсивная функция findMSTRecursive\n");
+    info += "Вес лучшего решения: ";
+    info += bestWeightString(bestWeight);
+    info += "\nВес текущего решения: ";
+    info += std::to_string(currentWeight);
+    info += "\nРебра в текущем решении:\n";
+    info += edgesToString(currentEdges);
+    infoToLogFile(info);
     #endif
-    if (currentEdges.size() == vertexesCount - 1) {
+    if (MAX_VERTEX_DEG < 2) {
         #if SHOW_INFO
-        infoToLogFile("Текущее решение содержит " +
-            std::to_string(vertexesCount - 1) +
-            " рёбер, оно окончательно для графа из " +
-            std::to_string(vertexesCount) +
-            " вершин.\nПроверим лучше ли оно предыдущего:"
-        );
+        info.clear();
+        info += "MAX_VERTEX_DEG < 2, решение невозможно.";
+        infoToLogFile(info);
         #endif
+        return;
+    }
+    if (currentEdges.size() == verticesCount - 1) {
+        #if SHOW_INFO
+        info.clear();
+        info += "Текущее решение содержит ";
+        info += std::to_string(verticesCount - 1);
+        info += " рёбер, оно окончательно для графа из ";
+        info += std::to_string(verticesCount);
+        info += " вершин.\nПроверим лучше ли оно предыдущего:";
+        infoToLogFile(info);
+        #endif
+
         if (currentWeight < bestWeight) {
             #if SHOW_INFO
-            infoToLogFile("Да, currentWeight = " +
-                std::to_string(currentWeight) +
-                ", а bestWeight = " +
-                bestWeightString(bestWeight) +
-                ". Заменяем лучшее решение текущим."
-            );
+            info.clear();
+            info += "Да, currentWeight = ";
+            info += std::to_string(currentWeight);
+            info += ", а bestWeight = ";
+            info += bestWeightString(bestWeight);
+            info += ". Заменяем лучшее решение текущим.";
+            infoToLogFile(info);
             #endif
             bestWeight = currentWeight;
             bestEdges = currentEdges;
         }
         #if SHOW_INFO
         else {
-            infoToLogFile("Нет, currentWeight = " +
-                std::to_string(currentWeight) +
-                ", а bestWeight = " +
-                std::to_string(bestWeight) +
-                ". Оставляем все как есть."
-            );
+            info.clear();
+            info += "Нет, currentWeight = ";
+            info += std::to_string(currentWeight);
+            info += ", а bestWeight = ";
+            info += std::to_string(bestWeight);
+            info += ". Оставляем все как есть.";
+            infoToLogFile(info);
         }
         #endif
         return;
     }
     if (index >= edges.size()) {
         #if SHOW_INFO
-        infoToLogFile(
-            "Обращение к несуществующему ребру, \
-            обрезаю текущую ветвь рекурсии"
-        );
+        infoToLogFile("Обращение к несуществующему ребру, обрезаю текущую ветвь рекурсии");
         #endif
         return;
     }
     edgesStack remaining(edges.begin() + index, edges.end());
-    int bound = kruskalLowerBound(remaining, dsu, vertexesCount);
+    int bound = kruskalLowerBound(remaining, dsu, verticesCount);
     if (bound == std::numeric_limits<int>::max()) {
         #if SHOW_INFO
-        infoToLogFile(
-            std::string("Оценка МОД на оставшихся вершинах ") +
-            "методом Крускала показала, \nчто построить МОД " +
-            "с текущими вершинами невозможно, \nобрезую эту ветвь рекурсии."
-        );
+        info.clear();
+        info += "Оценка МОД на оставшихся вершинах методом Крускала показала,";
+        info += "\nчто построить МОД с текущими вершинами невозможно,";
+        info += "\nобрезаю эту ветвь рекурсии.";
+        infoToLogFile(info);
         #endif
         return;
     }
+
     if (currentWeight + bound >= bestWeight) {
         #if SHOW_INFO
-        infoToLogFile(
-            "currentWeight = " +
-            std::to_string(currentWeight) +
-            "\tbound = " +
-            std::to_string(bound) +
-            "\tbestWeight = " +
-            std::to_string(bestWeight) +
-            "\n" + std::to_string(currentWeight) +
-            " + " + std::to_string(bound) +
-            " >= " + std::to_string(bestWeight) +
-            "\nТекущее решение + нижняя оценка МОД" +
-            "на оставшихся вершинах больше или равна лучшему решению \n" +
-            "дальше эту ветвь продолжать не имеет смысла, обрезаю ее."
-        );
+        info.clear();
+        info += "currentWeight = ";
+        info += std::to_string(currentWeight);
+        info += "\tbound = ";
+        info += std::to_string(bound);
+        info += "\tbestWeight = ";
+        info += std::to_string(bestWeight);
+        info += "\n";
+        info += std::to_string(currentWeight);
+        info += " + ";
+        info += std::to_string(bound);
+        info += " >= ";
+        info += std::to_string(bestWeight);
+        info += "\nТекущее решение + нижняя оценка МОД на оставшихся вершинах ";
+        info += "больше или равна лучшему решению";
+        info += "\nдальше эту ветвь продолжать не имеет смысла, обрезаю ее.";
+        infoToLogFile(info);
         #endif
         return;
     }
+
     auto& currentEdge = edges[index];
-    int vertexU = currentEdge.vertexes.first;
-    int vertexV = currentEdge.vertexes.second;
+    int vertexU = currentEdge.vertices.first;
+    int vertexV = currentEdge.vertices.second;
+
     #if SHOW_INFO
-    infoToLogFile(
-        std::string("Рассмотрим ребро ") +
-        vertexesToStringEdge(vertexU, vertexV)
-    );
+    info.clear();
+    info += "Рассмотрим ребро ";
+    info += verticesToStringEdge(vertexU, vertexV);
+    infoToLogFile(info);
     #endif
+
     if (degree[vertexU] < MAX_VERTEX_DEG && degree[vertexV] < MAX_VERTEX_DEG) {
         DSU dsuCopy = dsu;
         if (dsuCopy.unite(vertexU, vertexV)) {
             degree[vertexU]++;
             degree[vertexV]++;
             currentEdges.push_back(currentEdge);
+
             #if SHOW_INFO
-            infoToLogFile(
-                std::string("Добавляем ребро ") +
-                vertexesToStringEdge(vertexU, vertexV) +
-                " с весом " +
-                std::to_string(currentEdge.weight) +
-                " в текущее решение."
-            );
+            info.clear();
+            info += "Добавляем ребро ";
+            info += verticesToStringEdge(vertexU, vertexV);
+            info += " с весом ";
+            info += std::to_string(currentEdge.weight);
+            info += " в текущее решение.";
+            infoToLogFile(info);
             #endif
+
             findMSTRecursive(
                 edges, index + 1,
                 degree, dsuCopy,
                 currentWeight + currentEdge.weight,
                 bestWeight,
                 currentEdges, bestEdges,
-                vertexesCount
+                verticesCount
             );
+
             #if SHOW_INFO
-            infoToLogFile(
-                std::string("Удаляем ребро ") +
-                vertexesToStringEdge(vertexU, vertexV) +
-                " с весом " +
-                std::to_string(currentEdge.weight) +
-                " из текущего решения"
-            );
+            info.clear();
+            info += "Удаляем ребро ";
+            info += verticesToStringEdge(vertexU, vertexV);
+            info += " с весом ";
+            info += std::to_string(currentEdge.weight);
+            info += " из текущего решения";
+            infoToLogFile(info);
             #endif
+
             currentEdges.pop_back();
             degree[vertexU]--;
             degree[vertexV]--;
         }
         #if SHOW_INFO
         else {
-            infoToLogFile(
-                std::string("Ребро ") +
-                vertexesToStringEdge(vertexU, vertexV) +
-                " образует цикл, что недопустимо." +
-                "\nПерехожу к рассмотрению следующего ребра."
-            );
+            info.clear();
+            info += "Ребро ";
+            info += verticesToStringEdge(vertexU, vertexV);
+            info += " образует цикл, что недопустимо.";
+            info += "\nПерехожу к рассмотрению следующего ребра.";
+            infoToLogFile(info);
         }
         #endif
     }
     #if SHOW_INFO
     else {
-        infoToLogFile(
-            std::string("Ребро ") +
-            vertexesToStringEdge(vertexU, vertexV) +
-            " нарушает правило ограничения на степень вершины." +
-            "\nСтепень вершины " +
-            ALPHABET[vertexU] + ": " +
-            std::to_string(degree[vertexU]) +
-            "\nСтепень вершины " +
-            ALPHABET[vertexV] + ": " +
-            std::to_string(degree[vertexV]) +
-            "\nПерехожу к рассмотрению следующего ребра."
-        );
+        info.clear();
+        info += "Ребро ";
+        info += verticesToStringEdge(vertexU, vertexV);
+        info += " нарушает правило ограничения на степень вершины.\nСтепень вершины ";
+        info += ALPHABET[vertexU];
+        info += ": ";
+        info += std::to_string(degree[vertexU]);
+        info += "\nСтепень вершины ";
+        info += ALPHABET[vertexV];
+        info += ": ";
+        info += std::to_string(degree[vertexV]);
+        info += "\nПерехожу к рассмотрению следующего ребра.";
+        infoToLogFile(info);
     }
     #endif
+
     findMSTRecursive(
         edges, index + 1,
         degree, dsu,
         currentWeight,
         bestWeight,
         currentEdges, bestEdges,
-        vertexesCount
+        verticesCount
     );
+
     #if SHOW_INFO
-    infoToLogFile(
-        std::string("Рассмотрены все ветви рекурсии для ребра ")  +
-        vertexesToStringEdge(vertexU, vertexV) +
-        ". Функция нашла МОД с весом: " +
-        bestWeightString(bestWeight) + "\n"
-    );
+    info.clear();
+    info += "Рассмотрены все ветви рекурсии для ребра ";
+    info += verticesToStringEdge(vertexU, vertexV);
+    info += ". Функция нашла МОД с весом: ";
+    info += bestWeightString(bestWeight);
+    info += "\n";
+    infoToLogFile(info);
     #endif
+}
+
+void prepareEdgesStack(edgesStack& edges) {
+    return;
+}
+
+void printResult(edgesStack& edges, int bestWeight) {
+    std::string result;
+    result += std::to_string(bestWeight);
+    result += '\n';
+    for (auto& currentEdge : edges) {
+        int vertexU = currentEdge.vertices.first;
+        int vertexV = currentEdge.vertices.second;
+        result += ALPHABET[vertexU];
+        result += " -- ";
+        result += ALPHABET[vertexV];
+        result += "\t[";
+        result += std::to_string(currentEdge.weight);
+        result += "]\n";
+    }
+    std::cout << result;
 }
 
 int findMSTBranchAndBound() {
@@ -421,15 +483,15 @@ int findMSTBranchAndBound() {
         #endif
         return EXIT_FAILURE;
     }
+
     edgesStack edges = getEdgesStack(M);
-    std::sort(edges.begin(), edges.end(),
-        [](const edge& a, const edge& b) {
-            return a.weight < b.weight;
-        });
-    int vertexesCount = M.size();
-    std::vector<int> degree(vertexesCount, 0);
-    DSU dsu(vertexesCount);
-    std::cout << kruskalLowerBound(edges, dsu, vertexesCount, true) << '\n';
+    std::cout << edgesToString(edges);
+    // sortEdgesStack(edges);
+    std::cout << '\n' << edgesToString(edges);
+    int verticesCount = M.size();
+    std::vector<int> degree(verticesCount, 0);
+    DSU dsu(verticesCount);
+    std::cout << kruskalLowerBound(edges, dsu, verticesCount, true) << '\n';
     int bestWeight = std::numeric_limits<int>::max();
     edgesStack currentEdges, bestEdges;
     findMSTRecursive(
@@ -439,21 +501,14 @@ int findMSTBranchAndBound() {
         bestWeight,
         currentEdges,
         bestEdges,
-        vertexesCount
+        verticesCount
     );
     if (bestWeight == std::numeric_limits<int>::max()) {
         std::cout << "no path\n";
         return EXIT_FAILURE;
     }
     else {
-        std::cout << bestWeight << '\n';
-        for (auto& e : bestEdges) {
-            std::cout << ALPHABET[e.vertexes.first] << " -- "
-                      << ALPHABET[e.vertexes.second] << "\t["
-                      << e.weight
-                      << "]"
-                      << "\n";
-        }
+        printResult(bestEdges, bestWeight);
         edgesToDot(edges, bestEdges, GRAPH_FILENAME);
     }
     return EXIT_SUCCESS;
