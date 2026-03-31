@@ -140,14 +140,17 @@ std::string matrixToString(const matrix& M) {
 строковое представление ребра.
 */
 std::string verticesToStringEdge(const int vertexU, const int vertexV) {
-    std::stringstream ss;
+    std::stringstream ss; // открывает строковый поток
     ss << ALPHABET[vertexU] << " -- " << ALPHABET[vertexV];
-    return ss.str();
+    return ss.str(); // переводит строковый поток в строку
 }
 
+/*
+Функция переводит вектор ребер в строку
+*/
 std::string edgesToString(const edgesStack& edges) {
     std::string strCurrentEdges;
-    for (const edge& edge : edges) {
+    for (const edge& edge : edges) { // Итерация по ребрам
         int vertexU = edge.vertices.first;
         int vertexV = edge.vertices.second;
         strCurrentEdges += verticesToStringEdge(vertexU, vertexV);
@@ -156,12 +159,19 @@ std::string edgesToString(const edgesStack& edges) {
     return strCurrentEdges;
 }
 
+/*
+Функция возвращает строку с весом, если число является максимальным для int,
+возвращает "inf"
+*/
 std::string bestWeightString(const int& bestWeight) {
     return bestWeight == std::numeric_limits<int>::max() ?
     "inf" : std::to_string(bestWeight);
 }
 #endif
 
+/*
+Структура
+*/
 struct DSU {
     std::vector<int> sets, rank;
     DSU(int setsCount) : sets(setsCount), rank(setsCount, 0) {
