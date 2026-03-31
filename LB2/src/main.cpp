@@ -135,6 +135,10 @@ std::string matrixToString(const matrix& M) {
     return strMatrix;
 }
 
+/*
+Функция verticesToStringEdge(const int vertexU, const int vertexV) возвращает
+строковое представление ребра.
+*/
 std::string verticesToStringEdge(const int vertexU, const int vertexV) {
     std::stringstream ss;
     ss << ALPHABET[vertexU] << " -- " << ALPHABET[vertexV];
