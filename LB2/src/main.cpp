@@ -6,65 +6,126 @@
 #include <sstream>
 #include <limits>
 
+/*
+GRAPH_FILENAME определяет местонахождение для сохранения файла
+*/
 #define GRAPH_FILENAME "./files/graph.dot"
+/*
+Если на этапе компиляции не передан флаг MAX_VERTEX_DEG, он будет назначен
+автоматически значением 5.
+*/
 #ifndef MAX_VERTEX_DEG
-#define MAX_VERTEX_DEG 5
+    #define MAX_VERTEX_DEG 5
 #endif
+/*
+Флаг компиляции SHOW_INFO=1 собирает версию программы с выводом всех действий
+в лог файл. По умолчанию задается значением 0.
+*/
 #ifndef SHOW_INFO
     #define SHOW_INFO 1 // 0
 #endif
+/*
+Если задан флаг компиляции SHOW_INFO=1, то открывается файловый поток logFile.
+Переменная logCounter отвечает за нумерацию логов в файловый поток.
+*/
 #if SHOW_INFO
     #define LOG_FILENAME "./files/log.txt"
     std::ofstream logFile(LOG_FILENAME);
     int logCounter = 0;
 #endif
 
+
+/*
+Сотрока ALPHABET содержит все символы английского алфавита в верхнем и нижнем
+регистре.
+*/
 const std::string ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
+
+/*
+Структура edge служит для хранения информации о ребре
+*/
 struct edge {
-    std::pair<int, int> vertices;
-    int weight;
+    std::pair<int, int> vertices; // хранит идентификаторы 2 вершин ребра
+    int weight; // хранит вес ребра
+    /*
+    Оператор == переопределен для корректной сортировки вектора edgesStack
+    */
     bool operator==(const edge& counter) const {
         return vertices == counter.vertices && weight == counter.weight;
     }
 };
 
+/*
+edgesStack - псевдоним для вектора граней std::vector<edge>.
+*/
 using edgesStack = std::vector<edge>;
+/*
+matrix - псевдоним для вектора векторов std::vector<std::vector<int>>,
+где i,j элементы представляют из себя вес ребра для вершин с идентификатором
+i и j соответственно.
+*/
 using matrix = std::vector<std::vector<int>>;
 
+
+/*
+Структура recursiveInfoStruct используется для хранения и передачи информации в
+рекурсии.
+*/
 struct recursiveInfoStruct {
-    edgesStack& allEdges;
-    edgesStack& currentEdges;
-    edgesStack& bestEdges;
-    std::vector<int>& degreesOfVertices;
+    edgesStack& allEdges; // хранит все ребра
+    edgesStack& currentEdges; // хранит ребра текущего решения
+    edgesStack& bestEdges; // хранит ребра лучшего решения
+    std::vector<int>& degreesOfVertices; // хранит степени
     int currentWeight;
     int& bestWeight;
     int indexInEdgesStack;
 };
 
+/*
+Если задан флаг компиляции SHOW_INFO, программа скомпилируется с описанными ниже
+функциями
+*/
 #if SHOW_INFO
+/*
+Функция infoToLogFile(const std::string& info) передает строку info в файловый
+поток, если он открыт.
+*/
 void infoToLogFile(const std::string& info) {
     if (logFile) {
         logFile << logCounter++ << "\n";
-        std::stringstream ss(info);
-        std::string token;
+        std::stringstream ss(info); // открытие строкового потока
+        std::string token; // переменная для подстрок до знака '\n'
         while (std::getline(ss, token, '\n')) {
+            /*
+            Токенизирует поток ss, каждый раз перезаписывая token новой
+            подстрокой до '\n'. Записывает промежуточные результаты token
+            в logFile
+            */
             logFile << "\t" << token << std::endl;
         }
     }
 }
 
+/*
+Функция matrixToString(const matrix& M) принимает матрицу M и возвращает строку
+соответствующую этой матрице. За границами матрицы на местах строк и столбцов
+добавляет буквенные идентификаторы вершин.
+*/
 std::string matrixToString(const matrix& M) {
     std::string strMatrix;
     size_t squareMatrixSide = M.size();
+    // цикл для заполнения первой строки буквенными эквивалентами вершин
     for (size_t i = 0; i < squareMatrixSide; ++i) {
         strMatrix += "\t";
         strMatrix += ALPHABET[i];
     }
     strMatrix += "\n\n";
+    // цикл по строкам матрицы
     for (size_t i = 0; i < squareMatrixSide; ++i) {
         strMatrix += ALPHABET[i];
         strMatrix += "\t";
+        // цикл по столбцам матрицы
         for (size_t j = 0; j < squareMatrixSide; ++j) {
             strMatrix += std::to_string(M[i][j]);
             strMatrix += "\t";
@@ -243,6 +304,10 @@ int kruskalLowerBound(
     return MSTweight;
 }
 
+
+/*
+Рекурсивная функция
+*/
 void findMSTRecursive(
     edgesStack& edges,
     int index,
@@ -311,7 +376,8 @@ void findMSTRecursive(
     }
     if (index >= edges.size()) {
         #if SHOW_INFO
-        infoToLogFile("Обращение к несуществующему ребру, обрезаю текущую ветвь рекурсии");
+        infoToLogFile("Обращение к несуществующему ребру,\
+             обрезаю текущую ветвь рекурсии");
         #endif
         return;
     }
@@ -418,7 +484,8 @@ void findMSTRecursive(
         info.clear();
         info += "Ребро ";
         info += verticesToStringEdge(vertexU, vertexV);
-        info += " нарушает правило ограничения на степень вершины.\nСтепень вершины ";
+        info += " нарушает правило ограничения на степень вершины.";
+        info += "\nСтепень вершины ";
         info += ALPHABET[vertexU];
         info += ": ";
         info += std::to_string(degree[vertexU]);
