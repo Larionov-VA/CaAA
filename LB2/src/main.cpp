@@ -19,9 +19,16 @@
     int logCounter = 0;
 #endif
 
+
 const std::string ALPHABET = \
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
+
+/**
+ * Структура ребра графа.
+ * Содержит пару вершин (индексы) и вес.
+ * Определён оператор == для поиска в векторе.
+ */
 struct edge {
     std::pair<int, int> vertices;
     int weight;
@@ -29,6 +36,7 @@ struct edge {
         return vertices == counter.vertices && weight == counter.weight;
     }
 };
+
 
 using edgesStack = std::vector<edge>;
 using matrix = std::vector<std::vector<int>>;
@@ -47,6 +55,9 @@ void infoToLogFile(const std::string& info) {
 }
 
 
+/**
+ * Преобразование матрицы весов в строку с буквенными обозначениями вершин.
+ */
 std::string matrixToString(const matrix& M) {
     std::string strMatrix;
     size_t squareMatrixSide = M.size();
@@ -68,6 +79,9 @@ std::string matrixToString(const matrix& M) {
 }
 
 
+/**
+ * Возвращает строку вида "A -- B" для ребра между вершинами u и v.
+ */
 std::string verticesToStringEdge(const int vertexU, const int vertexV) {
     std::stringstream ss;
     ss << ALPHABET[vertexU] << " -- " << ALPHABET[vertexV];
@@ -75,6 +89,9 @@ std::string verticesToStringEdge(const int vertexU, const int vertexV) {
 }
 
 
+/**
+ * Формирует многострочное текстовое представление списка рёбер.
+ */
 std::string edgesToString(const edgesStack& edges) {
     std::string strCurrentEdges;
     for (const edge& edge : edges) {
@@ -86,6 +103,10 @@ std::string edgesToString(const edgesStack& edges) {
     return strCurrentEdges;
 }
 
+
+/**
+ * Возвращает строковое представление веса: число либо "inf".
+ */
 std::string bestWeightString(const int& bestWeight) {
     return bestWeight == std::numeric_limits<int>::max() ?
     "inf" : std::to_string(bestWeight);
@@ -93,18 +114,31 @@ std::string bestWeightString(const int& bestWeight) {
 #endif
 
 
+/**
+ * Система непересекающихся множеств (DSU) с эвристиками сжатия путей и объединения по рангу.
+ * Используется в алгоритме Краскала для проверки циклов и объединения компонент связности.
+ */
 struct DSU {
     std::vector<int> sets, rank;
     DSU(int setsCount) : sets(setsCount), rank(setsCount, 0) {
         for (int i = 0; i < setsCount; ++i)
             sets[i] = i;
     }
+    /**
+     * Находит представителя множества для элемента indexInSet.
+     * Применяется сжатие путей.
+     */
     int find(int indexInSet) {
         if (indexInSet == sets[indexInSet]) {
             return indexInSet;
         }
         return sets[indexInSet] = find(sets[indexInSet]);
     }
+    /**
+     * Объединяет множества, содержащие setA и setB.
+     * Возвращает true, если объединение выполнено (элементы были в разных множествах),
+     * иначе false.
+     */
     bool unite(int setA, int setB) {
         setA = find(setA);
         setB = find(setB);
@@ -123,6 +157,11 @@ struct DSU {
 };
 
 
+/**
+ * Считывает матрицу весов из стандартного ввода.
+ * Формат: первое число – количество вершин N,
+ * затем N строк по N чисел (веса рёбер).
+ */
 matrix getMatrixFromStream() {
     int verticesCount;
     std::cin >> verticesCount;
@@ -136,11 +175,18 @@ matrix getMatrixFromStream() {
 }
 
 
+/**
+ * Проверяет, содержится ли заданное ребро в списке (сравнение по ==).
+ */
 bool isEdgeIn(const edgesStack& edges, const edge& edge) {
     return std::find(edges.begin(), edges.end(), edge) == edges.end();
 }
 
 
+/**
+ * Генерирует файл в формате Graphviz DOT, отображающий исходный граф
+ * и выделяющий рёбра МОД зеленым цветом.
+ */
 void edgesToDot(
     const edgesStack& edges,
     const edgesStack& MSTedges,
@@ -172,6 +218,9 @@ void edgesToDot(
 }
 
 
+/**
+ * Проверяет симметричность матрицы.
+ */
 bool isMatrixSymmetric(const matrix& M) {
     for (size_t i = 0; i < M.size(); ++i) {
         for (size_t j = i + 1; j < M.size(); ++j) {
@@ -184,6 +233,10 @@ bool isMatrixSymmetric(const matrix& M) {
 }
 
 
+/**
+ * Преобразует матрицу смежности в список рёбер.
+ * Включаются только рёбра с ненулевым весом (i < j, чтобы избежать дублирования).
+ */
 edgesStack getEdgesStack(const matrix& M) {
     edgesStack edges;
     for (size_t i = 0; i < M.size(); ++i) {
@@ -197,6 +250,9 @@ edgesStack getEdgesStack(const matrix& M) {
 }
 
 
+/**
+ * Сортирует список рёбер по возрастанию веса.
+ */
 void sortEdgesStack(edgesStack& edges) {
     auto comporator = [](const edge& a, const edge& b) {
         return a.weight < b.weight;
@@ -205,6 +261,21 @@ void sortEdgesStack(edgesStack& edges) {
 }
 
 
+/**
+ * Вычисляет вес минимального остовного дерева (МОД) на основе алгоритма Краскала.
+ * Используется как для получения приближённого решения (с ограничением степени),
+ * так и для вычисления нижней оценки в методе ветвей и границ (без ограничения степени).
+ *
+ * Параметры:
+ *   edges         -- отсортированный по весу список доступных рёбер.
+ *   dsu           -- текущее состояние компонент связности (копия, модифицируется).
+ *   verticesCount -- общее число вершин графа.
+ *   digitLimit    -- если true, учитывается ограничение MAX_VERTEX_DEG на степень вершин.
+ *   mstEdges      -- если не nullptr, в него записываются рёбра построенного МОД.
+ *
+ * Возвращает вес построенного дерева либо std::numeric_limits<int>::max(),
+ * если построить дерево невозможно (не хватает рёбер или нарушены ограничения).
+ */
 int kruskalLowerBound(
     edgesStack& edges,
     DSU dsu,
@@ -250,6 +321,22 @@ int kruskalLowerBound(
 }
 
 
+/**
+ * Рекурсивная функция поиска точного решения методом ветвей и границ.
+ * Перебирает рёбра в порядке сортировки, формируя допустимые остовные деревья
+ * с ограничением степени MAX_VERTEX_DEG.
+ *
+ * Параметры:
+ *   edges         -- полный список рёбер (отсортирован).
+ *   index         -- текущий индекс рассматриваемого ребра.
+ *   degree        -- текущие степени вершин в частичном решении.
+ *   dsu           -- состояние компонент связности для частичного решения (копия).
+ *   currentWeight -- суммарный вес рёбер в частичном решении.
+ *   bestWeight    -- вес лучшего найденного на данный момент решения (изменяется при улучшении).
+ *   currentEdges  -- рёбра текущего частичного решения.
+ *   bestEdges     -- рёбра лучшего решения (обновляется вместе с bestWeight).
+ *   verticesCount -- общее число вершин.
+ */
 void findMSTRecursive(
     edgesStack& edges,
     int index,
@@ -271,6 +358,7 @@ void findMSTRecursive(
     info += edgesToString(currentEdges);
     infoToLogFile(info);
     #endif
+    // Если собрано V-1 рёбер, проверяем на улучшение рекорда
     if (currentEdges.size() == verticesCount - 1) {
         #if SHOW_INFO
         info.clear();
@@ -311,7 +399,7 @@ void findMSTRecursive(
         #if SHOW_INFO
         infoToLogFile("Index out of range, отсекаю ветвь рекурсии");
         #endif
-        return;
+        return; // рёбра кончились, дерево не достроено
     }
     edgesStack remaining(edges.begin() + index, edges.end());
     int bound = kruskalLowerBound(remaining, dsu, verticesCount);
@@ -323,7 +411,7 @@ void findMSTRecursive(
         info += "\nотсекаю эту ветвь рекурсии.";
         infoToLogFile(info);
         #endif
-        return;
+        return; // невозможно достроить до остова
     }
     if (currentWeight + bound >= bestWeight) {
         #if SHOW_INFO
@@ -345,7 +433,7 @@ void findMSTRecursive(
         info += "\nдальше эту ветвь продолжать не имеет смысла, отсекаю ее.";
         infoToLogFile(info);
         #endif
-        return;
+        return; // отсечение по верхней границе
     }
     auto& currentEdge = edges[index];
     int vertexU = currentEdge.vertices.first;
@@ -356,6 +444,7 @@ void findMSTRecursive(
     info += verticesToStringEdge(vertexU, vertexV);
     infoToLogFile(info);
     #endif
+    // Попытка включить ребро в решение
     if (degree[vertexU] < MAX_VERTEX_DEG && degree[vertexV] < MAX_VERTEX_DEG) {
         DSU dsuCopy = dsu;
         if (dsuCopy.unite(vertexU, vertexV)) {
@@ -422,6 +511,7 @@ void findMSTRecursive(
         infoToLogFile(info);
     }
     #endif
+    // Ветвь без включения текущего ребра
     findMSTRecursive(
         edges, index + 1,
         degree, dsu,
@@ -442,6 +532,10 @@ void findMSTRecursive(
 }
 
 
+/**
+ * Выводит в стандартный поток результаты работы алгоритмов:
+ * точное решение и (если оно отличается) приближённое решение.
+ */
 void printResult(
     edgesStack& bestEdges,
     edgesStack& approximationEdges,
@@ -486,6 +580,12 @@ void printResult(
 }
 
 
+/**
+ * Основная функция точного поиска МОД с ограничением степени.
+ * Считывает матрицу, строит приближённое решение (Краскал с ограничением),
+ * затем запускает метод ветвей и границ.
+ * Выводит результат и генерирует DOT-файл.
+ */
 int findMSTBranchAndBound() {
     matrix M = getMatrixFromStream();
     #if SHOW_INFO
@@ -537,6 +637,10 @@ int findMSTBranchAndBound() {
 }
 
 
+/**
+ * Точка входа.
+ * Проверяет корректность макроса MAX_VERTEX_DEG и запускает алгоритм.
+ */
 int main() {
     if (MAX_VERTEX_DEG < 2) {
         #if SHOW_INFO
