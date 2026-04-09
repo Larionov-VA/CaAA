@@ -8,4 +8,4 @@ elif [ $# -eq 2 ]; then
     g++ ./src/main.cpp -o ./build/main -D MAX_VERTEX_DEG=$1 -D SHOW_INFO=$2 -O3
 fi
 ./build/main < ./files/matrices/example.txt
-dot -Tpng ./files/graph.dot -o ./files/graph.png
+dot -Tsvg ./files/graph.dot -o ./files/graph.svg
