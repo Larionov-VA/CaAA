@@ -6,126 +6,58 @@
 #include <sstream>
 #include <limits>
 
-/*
-GRAPH_FILENAME определяет местонахождение для сохранения файла
-*/
 #define GRAPH_FILENAME "./files/graph.dot"
-/*
-Если на этапе компиляции не передан флаг MAX_VERTEX_DEG, он будет назначен
-автоматически значением 5.
-*/
 #ifndef MAX_VERTEX_DEG
-    #define MAX_VERTEX_DEG 5
+#define MAX_VERTEX_DEG 5
 #endif
-/*
-Флаг компиляции SHOW_INFO=1 собирает версию программы с выводом всех действий
-в лог файл. По умолчанию задается значением 0.
-*/
 #ifndef SHOW_INFO
-    #define SHOW_INFO 1 // 0
+    #define SHOW_INFO 0
 #endif
-/*
-Если задан флаг компиляции SHOW_INFO=1, то открывается файловый поток logFile.
-Переменная logCounter отвечает за нумерацию логов в файловый поток.
-*/
 #if SHOW_INFO
     #define LOG_FILENAME "./files/log.txt"
     std::ofstream logFile(LOG_FILENAME);
     int logCounter = 0;
 #endif
 
+const std::string ALPHABET = \
+"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-/*
-Сотрока ALPHABET содержит все символы английского алфавита в верхнем и нижнем
-регистре.
-*/
-const std::string ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-
-/*
-Структура edge служит для хранения информации о ребре
-*/
 struct edge {
-    std::pair<int, int> vertices; // хранит идентификаторы 2 вершин ребра
-    int weight; // хранит вес ребра
-    /*
-    Оператор == переопределен для корректной сортировки вектора edgesStack
-    */
+    std::pair<int, int> vertices;
+    int weight;
     bool operator==(const edge& counter) const {
         return vertices == counter.vertices && weight == counter.weight;
     }
 };
 
-/*
-edgesStack - псевдоним для вектора граней std::vector<edge>.
-*/
 using edgesStack = std::vector<edge>;
-/*
-matrix - псевдоним для вектора векторов std::vector<std::vector<int>>,
-где i,j элементы представляют из себя вес ребра для вершин с идентификатором
-i и j соответственно.
-*/
 using matrix = std::vector<std::vector<int>>;
 
 
-/*
-Структура recursiveInfoStruct используется для хранения и передачи информации в
-рекурсии.
-*/
-struct recursiveInfoStruct {
-    edgesStack& allEdges; // хранит все ребра
-    edgesStack& currentEdges; // хранит ребра текущего решения
-    edgesStack& bestEdges; // хранит ребра лучшего решения
-    std::vector<int>& degreesOfVertices; // хранит степени
-    int currentWeight;
-    int& bestWeight;
-    int indexInEdgesStack;
-};
-
-/*
-Если задан флаг компиляции SHOW_INFO, программа скомпилируется с описанными ниже
-функциями
-*/
 #if SHOW_INFO
-/*
-Функция infoToLogFile(const std::string& info) передает строку info в файловый
-поток, если он открыт.
-*/
 void infoToLogFile(const std::string& info) {
     if (logFile) {
         logFile << logCounter++ << "\n";
-        std::stringstream ss(info); // открытие строкового потока
-        std::string token; // переменная для подстрок до знака '\n'
+        std::stringstream ss(info);
+        std::string token;
         while (std::getline(ss, token, '\n')) {
-            /*
-            Токенизирует поток ss, каждый раз перезаписывая token новой
-            подстрокой до '\n'. Записывает промежуточные результаты token
-            в logFile
-            */
             logFile << "\t" << token << std::endl;
         }
     }
 }
 
-/*
-Функция matrixToString(const matrix& M) принимает матрицу M и возвращает строку
-соответствующую этой матрице. За границами матрицы на местах строк и столбцов
-добавляет буквенные идентификаторы вершин.
-*/
+
 std::string matrixToString(const matrix& M) {
     std::string strMatrix;
     size_t squareMatrixSide = M.size();
-    // цикл для заполнения первой строки буквенными эквивалентами вершин
     for (size_t i = 0; i < squareMatrixSide; ++i) {
         strMatrix += "\t";
         strMatrix += ALPHABET[i];
     }
     strMatrix += "\n\n";
-    // цикл по строкам матрицы
     for (size_t i = 0; i < squareMatrixSide; ++i) {
         strMatrix += ALPHABET[i];
         strMatrix += "\t";
-        // цикл по столбцам матрицы
         for (size_t j = 0; j < squareMatrixSide; ++j) {
             strMatrix += std::to_string(M[i][j]);
             strMatrix += "\t";
@@ -135,22 +67,17 @@ std::string matrixToString(const matrix& M) {
     return strMatrix;
 }
 
-/*
-Функция verticesToStringEdge(const int vertexU, const int vertexV) возвращает
-строковое представление ребра.
-*/
+
 std::string verticesToStringEdge(const int vertexU, const int vertexV) {
-    std::stringstream ss; // открывает строковый поток
+    std::stringstream ss;
     ss << ALPHABET[vertexU] << " -- " << ALPHABET[vertexV];
-    return ss.str(); // переводит строковый поток в строку
+    return ss.str();
 }
 
-/*
-Функция переводит вектор ребер в строку
-*/
+
 std::string edgesToString(const edgesStack& edges) {
     std::string strCurrentEdges;
-    for (const edge& edge : edges) { // Итерация по ребрам
+    for (const edge& edge : edges) {
         int vertexU = edge.vertices.first;
         int vertexV = edge.vertices.second;
         strCurrentEdges += verticesToStringEdge(vertexU, vertexV);
@@ -159,19 +86,13 @@ std::string edgesToString(const edgesStack& edges) {
     return strCurrentEdges;
 }
 
-/*
-Функция возвращает строку с весом, если число является максимальным для int,
-возвращает "inf"
-*/
 std::string bestWeightString(const int& bestWeight) {
     return bestWeight == std::numeric_limits<int>::max() ?
     "inf" : std::to_string(bestWeight);
 }
 #endif
 
-/*
-Структура
-*/
+
 struct DSU {
     std::vector<int> sets, rank;
     DSU(int setsCount) : sets(setsCount), rank(setsCount, 0) {
@@ -201,6 +122,7 @@ struct DSU {
     }
 };
 
+
 matrix getMatrixFromStream() {
     int verticesCount;
     std::cin >> verticesCount;
@@ -213,9 +135,11 @@ matrix getMatrixFromStream() {
     return M;
 }
 
+
 bool isEdgeIn(const edgesStack& edges, const edge& edge) {
     return std::find(edges.begin(), edges.end(), edge) == edges.end();
 }
+
 
 void edgesToDot(
     const edgesStack& edges,
@@ -247,6 +171,7 @@ void edgesToDot(
     dotFile << dotInfoString;
 }
 
+
 bool isMatrixSymmetric(const matrix& M) {
     for (size_t i = 0; i < M.size(); ++i) {
         for (size_t j = i + 1; j < M.size(); ++j) {
@@ -257,6 +182,7 @@ bool isMatrixSymmetric(const matrix& M) {
     }
     return true;
 }
+
 
 edgesStack getEdgesStack(const matrix& M) {
     edgesStack edges;
@@ -270,6 +196,7 @@ edgesStack getEdgesStack(const matrix& M) {
     return edges;
 }
 
+
 void sortEdgesStack(edgesStack& edges) {
     auto comporator = [](const edge& a, const edge& b) {
         return a.weight < b.weight;
@@ -277,13 +204,14 @@ void sortEdgesStack(edgesStack& edges) {
     std::sort(edges.begin(), edges.end(), comporator);
 }
 
+
 int kruskalLowerBound(
     edgesStack& edges,
     DSU dsu,
     int verticesCount,
-    bool digitLimit = false
+    bool digitLimit = false,
+    edgesStack* mstEdges = nullptr
 ) {
-    sortEdgesStack(edges);
     int MSTweight = 0;
     int currentVertexNumber = 0;
     std::vector<int> rank(edges.size(), 0);
@@ -307,6 +235,9 @@ int kruskalLowerBound(
             }
             MSTweight += currentEdge.weight;
             currentVertexNumber++;
+            if (mstEdges != nullptr) {
+                mstEdges->push_back(currentEdge);
+            }
             if (currentVertexNumber == verticesCount - 1) {
                 return MSTweight;
             }
@@ -319,9 +250,6 @@ int kruskalLowerBound(
 }
 
 
-/*
-Рекурсивная функция
-*/
 void findMSTRecursive(
     edgesStack& edges,
     int index,
@@ -343,14 +271,6 @@ void findMSTRecursive(
     info += edgesToString(currentEdges);
     infoToLogFile(info);
     #endif
-    if (MAX_VERTEX_DEG < 2) {
-        #if SHOW_INFO
-        info.clear();
-        info += "MAX_VERTEX_DEG < 2, решение невозможно.";
-        infoToLogFile(info);
-        #endif
-        return;
-    }
     if (currentEdges.size() == verticesCount - 1) {
         #if SHOW_INFO
         info.clear();
@@ -361,7 +281,6 @@ void findMSTRecursive(
         info += " вершин.\nПроверим лучше ли оно предыдущего:";
         infoToLogFile(info);
         #endif
-
         if (currentWeight < bestWeight) {
             #if SHOW_INFO
             info.clear();
@@ -390,8 +309,7 @@ void findMSTRecursive(
     }
     if (index >= edges.size()) {
         #if SHOW_INFO
-        infoToLogFile("Обращение к несуществующему ребру,\
-             обрезаю текущую ветвь рекурсии");
+        infoToLogFile("Index out of range, отсекаю ветвь рекурсии");
         #endif
         return;
     }
@@ -402,12 +320,11 @@ void findMSTRecursive(
         info.clear();
         info += "Оценка МОД на оставшихся вершинах методом Крускала показала,";
         info += "\nчто построить МОД с текущими вершинами невозможно,";
-        info += "\nобрезаю эту ветвь рекурсии.";
+        info += "\nотсекаю эту ветвь рекурсии.";
         infoToLogFile(info);
         #endif
         return;
     }
-
     if (currentWeight + bound >= bestWeight) {
         #if SHOW_INFO
         info.clear();
@@ -425,23 +342,20 @@ void findMSTRecursive(
         info += std::to_string(bestWeight);
         info += "\nТекущее решение + нижняя оценка МОД на оставшихся вершинах ";
         info += "больше или равна лучшему решению";
-        info += "\nдальше эту ветвь продолжать не имеет смысла, обрезаю ее.";
+        info += "\nдальше эту ветвь продолжать не имеет смысла, отсекаю ее.";
         infoToLogFile(info);
         #endif
         return;
     }
-
     auto& currentEdge = edges[index];
     int vertexU = currentEdge.vertices.first;
     int vertexV = currentEdge.vertices.second;
-
     #if SHOW_INFO
     info.clear();
     info += "Рассмотрим ребро ";
     info += verticesToStringEdge(vertexU, vertexV);
     infoToLogFile(info);
     #endif
-
     if (degree[vertexU] < MAX_VERTEX_DEG && degree[vertexV] < MAX_VERTEX_DEG) {
         DSU dsuCopy = dsu;
         if (dsuCopy.unite(vertexU, vertexV)) {
@@ -458,7 +372,6 @@ void findMSTRecursive(
             info += " в текущее решение.";
             infoToLogFile(info);
             #endif
-
             findMSTRecursive(
                 edges, index + 1,
                 degree, dsuCopy,
@@ -467,7 +380,6 @@ void findMSTRecursive(
                 currentEdges, bestEdges,
                 verticesCount
             );
-
             #if SHOW_INFO
             info.clear();
             info += "Удаляем ребро ";
@@ -477,7 +389,6 @@ void findMSTRecursive(
             info += " из текущего решения";
             infoToLogFile(info);
             #endif
-
             currentEdges.pop_back();
             degree[vertexU]--;
             degree[vertexV]--;
@@ -488,7 +399,7 @@ void findMSTRecursive(
             info += "Ребро ";
             info += verticesToStringEdge(vertexU, vertexV);
             info += " образует цикл, что недопустимо.";
-            info += "\nПерехожу к рассмотрению следующего ребра.";
+            info += "\nПереходим к рассмотрению следующего ребра.";
             infoToLogFile(info);
         }
         #endif
@@ -498,8 +409,8 @@ void findMSTRecursive(
         info.clear();
         info += "Ребро ";
         info += verticesToStringEdge(vertexU, vertexV);
-        info += " нарушает правило ограничения на степень вершины.";
-        info += "\nСтепень вершины ";
+        info += " нарушает правило ограничения на степень вершины.\n";
+        info += "Степень вершины ";
         info += ALPHABET[vertexU];
         info += ": ";
         info += std::to_string(degree[vertexU]);
@@ -511,7 +422,6 @@ void findMSTRecursive(
         infoToLogFile(info);
     }
     #endif
-
     findMSTRecursive(
         edges, index + 1,
         degree, dsu,
@@ -520,7 +430,6 @@ void findMSTRecursive(
         currentEdges, bestEdges,
         verticesCount
     );
-
     #if SHOW_INFO
     info.clear();
     info += "Рассмотрены все ветви рекурсии для ребра ";
@@ -532,15 +441,23 @@ void findMSTRecursive(
     #endif
 }
 
-void prepareEdgesStack(edgesStack& edges) {
-    return;
-}
 
-void printResult(edgesStack& edges, int bestWeight) {
+void printResult(
+    edgesStack& bestEdges,
+    edgesStack& approximationEdges,
+    int bestWeight,
+    int approximationWeight
+) {
     std::string result;
+    if (bestWeight == approximationWeight) {
+        result += "Приближенное и точное значения равны: ";
+    }
+    else {
+        result += "Точное значение: ";
+    }
     result += std::to_string(bestWeight);
     result += '\n';
-    for (auto& currentEdge : edges) {
+    for (auto& currentEdge : bestEdges) {
         int vertexU = currentEdge.vertices.first;
         int vertexV = currentEdge.vertices.second;
         result += ALPHABET[vertexU];
@@ -550,8 +467,24 @@ void printResult(edgesStack& edges, int bestWeight) {
         result += std::to_string(currentEdge.weight);
         result += "]\n";
     }
+    if (bestWeight != approximationWeight) {
+        result += "Приближенное значение: ";
+        result += std::to_string(approximationWeight);
+        result += '\n';
+        for (auto& currentEdge : approximationEdges) {
+            int vertexU = currentEdge.vertices.first;
+            int vertexV = currentEdge.vertices.second;
+            result += ALPHABET[vertexU];
+            result += " -- ";
+            result += ALPHABET[vertexV];
+            result += "\t[";
+            result += std::to_string(currentEdge.weight);
+            result += "]\n";
+        }
+    }
     std::cout << result;
 }
+
 
 int findMSTBranchAndBound() {
     matrix M = getMatrixFromStream();
@@ -564,17 +497,22 @@ int findMSTBranchAndBound() {
         #endif
         return EXIT_FAILURE;
     }
-
     edgesStack edges = getEdgesStack(M);
-    std::cout << edgesToString(edges);
-    // sortEdgesStack(edges);
-    std::cout << '\n' << edgesToString(edges);
+    sortEdgesStack(edges);
     int verticesCount = M.size();
     std::vector<int> degree(verticesCount, 0);
     DSU dsu(verticesCount);
-    std::cout << kruskalLowerBound(edges, dsu, verticesCount, true) << '\n';
-    int bestWeight = std::numeric_limits<int>::max();
-    edgesStack currentEdges, bestEdges;
+    edgesStack currentEdges, bestEdges, approximationEdges;
+    int approximation = kruskalLowerBound(
+        edges,
+        dsu,
+        verticesCount,
+        true,
+        &approximationEdges
+    );
+    std::cout << "Приближенное значение: ";
+    std::cout << approximation << '\n';
+    int bestWeight = approximation;
     findMSTRecursive(
         edges, 0,
         degree, dsu,
@@ -589,12 +527,22 @@ int findMSTBranchAndBound() {
         return EXIT_FAILURE;
     }
     else {
-        printResult(bestEdges, bestWeight);
+        if (bestEdges.size() == 0) {
+            bestEdges = approximationEdges;
+        }
+        printResult(bestEdges, approximationEdges, bestWeight, approximation);
         edgesToDot(edges, bestEdges, GRAPH_FILENAME);
     }
     return EXIT_SUCCESS;
 }
 
+
 int main() {
+    if (MAX_VERTEX_DEG < 2) {
+        #if SHOW_INFO
+        infoToLogFile("MAX_VERTEX_DEG < 2, решение невозможно.");
+        #endif
+        return EXIT_FAILURE;
+    }
     return findMSTBranchAndBound();
 }
