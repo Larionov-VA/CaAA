@@ -1,6 +1,6 @@
 #!/bin/bash
 mkdir -p ./build
-mkdir -p ./files
+mkdir -p ./files/matrices
 if [ $# -eq 0 ]; then
     g++ ./utilities/generate_matrix.cpp -o ./build/generate_matrix
 else
