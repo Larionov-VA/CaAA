@@ -610,8 +610,6 @@ int findMSTBranchAndBound() {
         true,
         &approximationEdges
     );
-    std::cout << "Приближенное значение: ";
-    std::cout << approximation << '\n';
     int bestWeight = approximation;
     findMSTRecursive(
         edges, 0,
