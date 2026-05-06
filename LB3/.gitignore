@@ -1,0 +1,10 @@
+GUI.spec
+linuxdeploy-x86_64.AppImage
+/src/v
+/src/dist
+/src/build
+/src/AppDir
+src/squashfs-root/
+algo
+runtime
+wagner.desktop
