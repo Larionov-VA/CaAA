@@ -8,3 +8,4 @@ src/squashfs-root/
 algo
 runtime
 wagner.desktop
+*.log
